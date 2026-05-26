@@ -1,0 +1,93 @@
+import { get } from './index'
+
+/** 安全事件（已入库线索，字段与 biz_risk_clue 一致） */
+export interface SecurityEvent {
+  id: string
+  number?: number
+  event_name?: string
+  eventName?: string
+  class_human_1?: string
+  classHuman1?: string
+  class_human_2?: string
+  classHuman2?: string
+  class_human_list?: string[]
+  classHumanList?: string[]
+  risk_description_human?: string
+  riskDescriptionHuman?: string
+  operating_entity_human?: string
+  operatingEntityHuman?: string
+  source_url?: string
+  sourceUrl?: string
+  source_website?: string
+  sourceWebsite?: string
+  products_components_services?: string
+  productsComponentsServices?: string
+  is_warehouse?: number
+  isWarehouse?: number
+  audit_status?: number
+  auditStatus?: number
+  audit_user_name?: string
+  auditUserName?: string
+  audit_dept_name?: string
+  auditDeptName?: string
+  audit_time?: string
+  auditTime?: string
+  audit_reason?: string
+  auditReason?: string
+  content?: string
+  risk_description?: string
+  riskDescription?: string
+  summary?: string
+  class_report_1?: string
+  classReport1?: string
+  class_report_2?: string
+  classReport2?: string
+  class_report_list?: string[]
+  classReportList?: string[]
+  submission_channel?: string
+  submissionChannel?: string
+  submission_time?: string
+  submissionTime?: string
+  submit_user_name?: string
+  submitUserName?: string
+  submit_org_name?: string
+  submitOrgName?: string
+  operating_entity?: string
+  operatingEntity?: string
+  create_time?: string
+  createTime?: string
+  /** 列表卡片用 */
+  _cardCategories?: string[]
+  _cardPrimaryCategory?: string
+  _cardCategoryColorIndex?: number
+  _cardTime?: string
+}
+
+export interface SecurityEventStats {
+  total: number
+}
+
+export interface SecurityEventSearchParams {
+  keyword?: string
+  auditRiskCategory?: string
+  sourceWebsite?: string
+  operatingEntityHuman?: string
+  productsComponentsServices?: string
+  auditUserName?: string
+  auditStartTime?: string
+  auditEndTime?: string
+  page?: number
+  size?: number
+}
+
+export function searchEvents(params: SecurityEventSearchParams) {
+  return get('/business/security-event/search', params as unknown as Record<string, unknown>)
+}
+
+export function getEventById(id: string) {
+  return get<SecurityEvent>(`/business/security-event/${id}`)
+}
+
+export function getEventStats() {
+  return get<SecurityEventStats>('/business/security-event/stats')
+}

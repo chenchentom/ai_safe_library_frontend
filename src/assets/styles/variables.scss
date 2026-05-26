@@ -1,0 +1,165 @@
+// ========================================
+// AI 安全平台 - 设计 Token
+// 深海蓝 + 玻璃拟态 + 微发光
+// ========================================
+
+// 主色系（蓝紫发光）
+$color-primary: #4f7cff;
+$color-primary-light: #6b8bff;
+$color-primary-dark: #3d67e6;
+
+// 功能色
+$color-success: #10b981;
+$color-warning: #f59e0b;
+$color-danger: #ef4444;
+$color-info: #6366f1;
+
+// 背景色
+$color-bg: #050b14;
+$color-bg-secondary: #08101d;
+$color-bg-white: #0b1220;
+
+// 文字色
+$color-text-primary: #e6edf7;
+$color-text-regular: rgba(230, 237, 247, 0.82);
+$color-text-secondary: rgba(230, 237, 247, 0.62);
+$color-text-placeholder: rgba(230, 237, 247, 0.42);
+
+// 边框色
+$color-border: rgba(80, 120, 255, 0.12);
+$color-border-light: rgba(80, 120, 255, 0.08);
+
+// 侧边栏
+$color-sidebar-bg: #08111f;
+$color-sidebar-text: rgba(230, 237, 247, 0.74);
+$color-sidebar-text-active: #ffffff;
+$color-sidebar-item-hover: rgba(80, 120, 255, 0.08);
+$color-sidebar-item-active: rgba(79, 124, 255, 0.25);
+
+// 字体
+$font-family: 'IBM Plex Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+  'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+$font-family-display: 'Outfit', 'IBM Plex Sans SC', sans-serif;
+// 字体大小（基于 Material 3 和 Apple HIG）
+$font-size-xs: 12px;
+$font-size-sm: 13px;
+$font-size-base: 14px;
+$font-size-md: 15px;
+$font-size-lg: 16px;
+$font-size-xl: 18px;
+$font-size-2xl: 20px;
+
+// 间距（4px 增量）
+$spacing-1: 4px;
+$spacing-2: 8px;
+$spacing-3: 12px;
+$spacing-4: 16px;
+$spacing-5: 20px;
+$spacing-6: 24px;
+$spacing-7: 28px;
+$spacing-8: 32px;
+$spacing-15: 60px;
+$spacing-35: 140px;
+
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-base: 16px;
+$spacing-lg: 20px;
+$spacing-xl: 24px;
+$spacing-2xl: 32px;
+$spacing-3xl: 48px;
+
+// 圆角
+$border-radius-xs: 2px;
+$border-radius-sm: 4px;
+$border-radius-base: 6px;
+$border-radius-md: 8px;
+$border-radius-lg: 12px;
+$border-radius-xl: 16px;
+$border-radius-full: 9999px;
+$border-radius-round: 9999px;
+
+// 阴影
+$shadow-xs: 0 0 24px rgba(79, 124, 255, 0.08);
+$shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.25);
+$shadow-base: 0 4px 20px rgba(0, 0, 0, 0.35);
+$shadow-md: 0 8px 28px rgba(0, 0, 0, 0.4);
+$shadow-lg: 0 14px 48px rgba(0, 0, 0, 0.5);
+
+// 字体
+$font-family-mono: 'IBM Plex Mono', 'SF Mono', Monaco, Consolas, monospace;
+
+// 字体大小
+$font-size-2xl: 20px;
+$font-size-3xl: 24px;
+$font-size-4xl: 32px;
+
+// 字重
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+// 字间距
+$letter-spacing-wider: 0.05em;
+$letter-spacing-tight: -0.01em;
+
+// 行高
+$line-height-tight: 1.2;
+$line-height-normal: 1.4;
+$line-height-relaxed: 1.6;
+
+// 动画时长
+$duration-base: 0.2s;
+$duration-medium: 0.3s;
+$duration-slow: 0.4s;
+$duration-slower: 0.6s;
+
+// 缓动函数
+$ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+$ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+// 颜色变体
+$color-primary-50: rgba(79, 124, 255, 0.06);
+$color-primary-100: rgba(79, 124, 255, 0.12);
+$color-primary-200: rgba(79, 124, 255, 0.25);
+$color-primary-300: rgba(79, 124, 255, 0.35);
+$color-primary-400: rgba(79, 124, 255, 0.5);
+$color-primary-600: rgba(61, 103, 230, 1);
+$color-primary-900: #1e3a8a;
+
+// 其他颜色变体
+$color-success-100: rgba(16, 185, 129, 0.12);
+$color-warning-100: rgba(245, 158, 11, 0.12);
+$color-danger-100: rgba(239, 68, 68, 0.12);
+
+// 文字色补充
+$color-text-disabled: rgba(230, 237, 247, 0.3);
+
+// 阴影补充
+$shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.55);
+
+// 间距补充
+$spacing-05: 2px;
+$spacing-25: 10px;
+$spacing-16: 64px;
+
+// 侧边栏宽度
+$sidebar-width: 240px;
+$sidebar-collapsed-width: 64px;
+
+// 顶栏高度
+$header-height: 56px;
+
+// 过渡
+$transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+// z-index
+$z-index-tooltip: 1070;
+$z-index-popover: 1060;
+
+// CSS 变量
+:root {
+  --glow-subtle: 0 0 0 1px rgba(79, 124, 255, 0.08), 0 0 24px rgba(79, 124, 255, 0.12);
+}

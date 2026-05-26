@@ -1,0 +1,769 @@
+<template>
+  <div class="risk-clue-page" :class="{ 'has-drawer': drawerVisible }">
+    <div v-if="drawerVisible" class="page-backdrop" @click="drawerVisible = false" />
+    <!-- LEFT: Filter Panel -->
+    <div class="filter-panel">
+      <div class="filter-title">
+        <el-icon><Filter /></el-icon>
+        <span>筛选条件</span>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">风险等级</label>
+        <el-select v-model="filters.riskLevel" placeholder="全部" clearable style="width: 100%">
+          <el-option label="高危" value="high" />
+          <el-option label="中危" value="medium" />
+          <el-option label="低危" value="low" />
+          <el-option label="信息" value="info" />
+        </el-select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">审核状态</label>
+        <el-select v-model="filters.reviewStatus" placeholder="全部" clearable style="width: 100%">
+          <el-option label="待审核" :value="10" />
+          <el-option label="已审核" :value="20" />
+          <el-option label="已驳回" :value="40" />
+        </el-select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">来源类型</label>
+        <el-select v-model="filters.sourceType" placeholder="全部" clearable style="width: 100%">
+          <el-option label="开源网站" value="crawl" />
+          <el-option label="人工报送" value="report" />
+        </el-select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">时间范围</label>
+        <el-date-picker
+          v-model="filters.dateRange"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始"
+          end-placeholder="结束"
+          value-format="YYYY-MM-DD"
+          style="width: 100%"
+        />
+      </div>
+
+      <div class="filter-actions">
+        <el-button type="primary" @click="handleSearch" style="width: 100%">
+          <el-icon><Search /></el-icon>
+          <span>搜索</span>
+        </el-button>
+        <el-button plain @click="handleReset" style="width: 100%">重置</el-button>
+      </div>
+    </div>
+
+    <!-- MIDDLE: Card Grid -->
+    <div class="main-content">
+      <div v-if="activeFilterChips.length" class="active-filters">
+        <span class="active-filters-label">筛选</span>
+        <el-tag
+          v-for="chip in activeFilterChips"
+          :key="chip.key"
+          closable
+          size="small"
+          effect="plain"
+          @close="removeFilterChip(chip.key)"
+        >
+          {{ chip.label }}
+        </el-tag>
+      </div>
+
+      <!-- Stats command bar -->
+      <div class="stats-command">
+        <div
+          class="stat-card stat-hero stat-pending"
+          :class="{ 'has-pending': stats.pending > 0, 'is-active': filters.reviewStatus === 10 }"
+          @click="filterByStat('pending')"
+        >
+          <div class="stat-value">{{ stats.pending }}</div>
+          <div class="stat-label">待审核</div>
+          <span class="stat-hint">点击筛选</span>
+        </div>
+        <div
+          class="stat-card stat-total"
+          :class="{ 'is-active': filters.reviewStatus === undefined && !hasExtraFilters }"
+          @click="filterByStat('total')"
+        >
+          <div class="stat-value">{{ stats.total }}</div>
+          <div class="stat-label">总数</div>
+        </div>
+        <div
+          class="stat-card stat-reviewed"
+          :class="{ 'is-active': filters.reviewStatus === 20 }"
+          @click="filterByStat('reviewed')"
+        >
+          <div class="stat-value">{{ stats.reviewed }}</div>
+          <div class="stat-label">已审核</div>
+        </div>
+        <div
+          class="stat-card stat-rejected"
+          :class="{ 'is-active': filters.reviewStatus === 40 }"
+          @click="filterByStat('rejected')"
+        >
+          <div class="stat-value">{{ stats.rejected }}</div>
+          <div class="stat-label">已驳回</div>
+        </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="search-bar">
+        <el-input
+          v-model="filters.keyword"
+          placeholder="搜索线索标题、内容..."
+          clearable
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+      </div>
+
+      <!-- Card Grid -->
+      <div v-loading="loading" class="card-grid">
+        <div
+          v-for="(item, index) in clueList"
+          :key="item.id"
+          class="clue-card"
+          :class="{
+            'is-selected': currentClue?.id === item.id && drawerVisible,
+            'is-pending-review': item.reviewStatus === 10,
+          }"
+          :style="{ '--card-i': index }"
+          @click="openDetail(item)"
+        >
+          <div class="card-bar" :class="'bar-' + (item.riskLevel || 'info')"></div>
+          <div class="card-body">
+            <div class="card-title">{{ getEventName(item) }}</div>
+            <div class="card-summary">{{ getRiskDescription(item) || "暂无摘要" }}</div>
+            <div class="card-meta-row">
+              <el-tag v-if="item.source_website || item.sourceWebsite || item.siteName" type="info" size="small" effect="plain">
+                {{ item.source_website || item.sourceWebsite || item.siteName }}
+              </el-tag>
+              <el-tag :type="reviewTagType(item.audit_status || item.auditStatus || item.reviewStatus)" size="small" effect="plain">
+                {{ reviewLabel(item.audit_status || item.auditStatus || item.reviewStatus) }}
+              </el-tag>
+            </div>
+            <div class="card-meta-row card-meta-row--secondary">
+              <el-tag v-if="item.submission_channel || item.submissionChannel || item.sourceType" :type="sourceTagType(item.submission_channel || item.submissionChannel || item.sourceType)" size="small" effect="plain">
+                {{ sourceLabel(item.submission_channel || item.submissionChannel || item.sourceType) }}
+              </el-tag>
+              <el-tag
+                v-for="tag in [...(item.class_report_list || item.classReportList || item.classNameModel || []), ...(item.class_human_list || item.classHumanList || item.classNameHuman || [])].slice(0, 2)"
+                :key="tag"
+                size="small"
+                type="info"
+                effect="plain"
+              >
+                {{ tag }}
+              </el-tag>
+              <span class="meta-time">{{ formatDateTime(item.create_time || item.createTime || item.createdTime) }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-if="!loading && clueList.length === 0" class="empty-state">
+          <el-icon :size="48"><Document /></el-icon>
+          <p>无匹配线索</p>
+          <p class="empty-hint">尝试调整筛选条件或清空关键词</p>
+          <el-button plain size="small" style="margin-top: 12px" @click="handleReset">清空筛选</el-button>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.size"
+          :total="pagination.total"
+          :page-sizes="[12, 16, 24, 48]"
+          layout="total, sizes, prev, pager, next, jumper"
+          background
+          @size-change="fetchData"
+          @current-change="fetchData"
+        />
+      </div>
+    </div>
+
+    <!-- RIGHT: Detail Panel -->
+    <div
+      v-if="drawerVisible"
+      class="detail-panel"
+      :style="{ width: drawerWidth + 'px' }"
+    >
+      <div class="panel-header">
+        <span class="panel-title">线索详情</span>
+        <el-icon class="panel-close" @click="drawerVisible = false">
+          <Close />
+        </el-icon>
+      </div>
+      <div
+        class="panel-resize-handle"
+        @mousedown="startResize"
+      ></div>
+      <div class="panel-content">
+        <div v-if="currentClue" class="detail-content">
+        <div class="detail-hero">
+          <h3 class="detail-title">{{ getEventName(currentClue) }}</h3>
+          <div class="detail-tags">
+            <el-tag v-if="currentClue.source_website || currentClue.sourceWebsite || currentClue.siteName" type="info" size="small" effect="plain">
+              {{ currentClue.source_website || currentClue.sourceWebsite || currentClue.siteName }}
+            </el-tag>
+            <el-tag :type="reviewTagType(currentClue.audit_status || currentClue.auditStatus || currentClue.reviewStatus)" size="small">
+              {{ reviewLabel(currentClue.audit_status || currentClue.auditStatus || currentClue.reviewStatus) }}
+            </el-tag>
+            <el-tag v-if="currentClue.submission_channel || currentClue.submissionChannel || currentClue.sourceType" :type="sourceTagType(currentClue.submission_channel || currentClue.submissionChannel || currentClue.sourceType)" size="small" effect="plain">
+              {{ sourceLabel(currentClue.submission_channel || currentClue.submissionChannel || currentClue.sourceType) }}
+            </el-tag>
+          </div>
+          <div class="detail-hero-meta">
+            <span v-if="currentClue.submit_org_name || currentClue.submitOrgName || currentClue.reportUnit">报送 · {{ currentClue.submit_org_name || currentClue.submitOrgName || currentClue.reportUnit }}</span>
+            <span>{{ formatDateTime(currentClue.create_time || currentClue.createTime || currentClue.createdTime) }}</span>
+          </div>
+        </div>
+
+        <el-divider />
+
+        <div class="detail-section">
+          <div class="detail-row">
+            <span class="detail-label">事件名称</span>
+            <span class="detail-value">{{ getEventName(currentClue) || "-" }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">内容</span>
+            <span class="detail-value detail-content-text">{{ currentClue.content || '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">风险描述</span>
+            <span class="detail-value">{{ getRiskDescription(currentClue) || "-" }}</span>
+          </div>
+          <div class="detail-row" v-if="currentClue.source_url || currentClue.sourceUrl || currentClue.url">
+            <span class="detail-label">来源URL</span>
+            <a :href="currentClue.source_url || currentClue.sourceUrl || currentClue.url" target="_blank" class="detail-link">{{ currentClue.source_url || currentClue.sourceUrl || currentClue.url }}</a>
+          </div>
+          <div class="detail-row" v-if="currentClue.source_website || currentClue.sourceWebsite || currentClue.siteName">
+            <span class="detail-label">来源网站</span>
+            <span class="detail-value">{{ currentClue.source_website || currentClue.sourceWebsite || currentClue.siteName }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">报送时间</span>
+            <span class="detail-value">{{ formatDateTime(currentClue.submission_time || currentClue.submissionTime) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">报送类别</span>
+            <span class="detail-value">{{ (currentClue.class_report_1 || currentClue.classReport1 ? (currentClue.class_report_1 || currentClue.classReport1) + ((currentClue.class_report_2 || currentClue.classReport2) ? '/' + (currentClue.class_report_2 || currentClue.classReport2) : '') : '') || '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">报送渠道</span>
+            <span class="detail-value">{{ currentClue.submission_channel || currentClue.submissionChannel || currentClue.sourceType || '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">报送人</span>
+            <span class="detail-value">{{ currentClue.submit_user_name || currentClue.submitUserName || '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">运营主体</span>
+            <span class="detail-value">{{ currentClue.operating_entity || currentClue.operatingEntity || '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">产品/组件/服务</span>
+            <span class="detail-value">{{ currentClue.products_components_services || currentClue.productsComponentsServices || '-' }}</span>
+          </div>
+        </div>
+        </div>
+
+        <el-divider />
+
+        <!-- Review History -->
+        <div class="detail-section">
+          <h4 class="section-title">审核历史</h4>
+          <div v-if="reviewHistory.length > 0" class="review-timeline">
+            <div
+              v-for="(record, idx) in reviewHistory"
+              :key="record.id"
+              class="timeline-item"
+              :class="{ 'timeline-item--latest': idx === 0 }"
+            >
+              <div class="timeline-dot" :class="record.isHarmful ? 'dot-harmful' : 'dot-safe'"></div>
+              <div class="timeline-content">
+                <div class="timeline-header">
+                  <span class="timeline-reviewer">{{ record.reviewerName || record.reviewer }}</span>
+                  <span class="timeline-time">{{ formatDateTime(record.reviewTime) }}</span>
+                </div>
+                <div class="timeline-result">
+                  <el-tag :type="record.isHarmful ? 'danger' : 'success'" size="small">
+                    {{ record.isHarmful ? '有害' : '无害' }}
+                  </el-tag>
+                </div>
+                <div v-if="record.harmfulReason" class="timeline-reason">
+                  原因: {{ record.harmfulReason }}
+                </div>
+                <div v-if="record.reviewComment" class="timeline-comment">
+                  备注: {{ record.reviewComment }}
+                </div>
+                <div v-if="record.reviewTags && record.reviewTags.length > 0" class="timeline-tags">
+                  <el-tag v-for="tag in record.reviewTags" :key="tag" size="small" type="info" style="margin-right: 4px;">
+                    {{ tag }}
+                  </el-tag>
+                </div>
+              </div>
+            </div>
+          </div>
+          <el-empty v-else description="暂无审核记录" :image-size="60" />
+        </div>
+
+        <!-- Review Action (only for pending) -->
+        <template v-if="(currentClue.audit_status || currentClue.auditStatus || currentClue.reviewStatus) === 10">
+          <el-divider />
+          <div class="detail-section review-action">
+            <h4 class="section-title">审核操作</h4>
+            <el-form label-width="80px" size="default">
+              <el-form-item label="是否有害">
+                <el-switch
+                  v-model="reviewForm.isHarmful"
+                  active-text="有害"
+                  inactive-text="无害"
+                  inline-prompt
+                />
+              </el-form-item>
+              <el-form-item label="审核标签">
+                <el-cascader
+                  v-model="reviewForm.reviewTags"
+                  :options="tagTree"
+                  :props="{
+                    multiple: true,
+                    value: 'tagCode',
+                    label: 'label',
+                    children: 'children',
+                    emitPath: false,
+                    checkStrictly: true
+                  }"
+                  placeholder="请选择风险线索标签"
+                  clearable
+                  filterable
+                  style="width: 100%"
+                />
+              </el-form-item>
+              <template v-if="reviewForm.isHarmful">
+                <el-form-item label="有害原因">
+                  <el-input
+                    v-model="reviewForm.harmfulReason"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="请描述有害原因"
+                  />
+                </el-form-item>
+              </template>
+              <el-form-item label="审核备注">
+                <el-input
+                  v-model="reviewForm.reviewComment"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="可选备注"
+                />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :loading="reviewLoading" @click="handleSubmitReview">
+                  提交审核
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import { Close } from '@element-plus/icons-vue'
+import {
+  searchRiskClue,
+  getRiskClueById,
+  reviewClue,
+  getReviewHistory,
+  getRiskClueStats,
+  getTagTree,
+  type RiskClue,
+  type ReviewRecord,
+  type RiskClueStats,
+  type TagCategory,
+} from '@/api/riskClue'
+
+const loading = ref(false)
+const reviewLoading = ref(false)
+const drawerVisible = ref(false)
+const drawerWidth = ref(480)
+const clueList = ref<RiskClue[]>([])
+const tagTree = ref<TagCategory[]>([])
+
+const isResizing = ref(false)
+const startX = ref(0)
+const startWidth = ref(0)
+
+function startResize(e: MouseEvent) {
+  isResizing.value = true
+  startX.value = e.clientX
+  startWidth.value = drawerWidth.value
+  document.addEventListener('mousemove', onResize)
+  document.addEventListener('mouseup', stopResize)
+}
+
+function onResize(e: MouseEvent) {
+  if (!isResizing.value) return
+  const deltaX = startX.value - e.clientX
+  const newWidth = Math.max(300, Math.min(800, startWidth.value + deltaX))
+  drawerWidth.value = newWidth
+}
+
+function stopResize() {
+  isResizing.value = false
+  document.removeEventListener('mousemove', onResize)
+  document.removeEventListener('mouseup', stopResize)
+}
+
+const currentClue = ref<RiskClue | null>(null)
+const reviewHistory = ref<ReviewRecord[]>([])
+
+async function fetchTagTree() {
+  try {
+    const res = await getTagTree('risk_clue')
+    tagTree.value = res || []
+  } catch (error) {
+    console.error('获取标签树失败:', error)
+  }
+}
+
+const stats = reactive<RiskClueStats>({
+  total: 0,
+  pending: 0,
+  reviewed: 0,
+  rejected: 0,
+})
+
+const filters = reactive({
+  keyword: '',
+  riskLevel: '',
+  reviewStatus: undefined as number | undefined,
+  sourceType: '',
+  dateRange: [] as string[],
+})
+
+const pagination = reactive({
+  page: 1,
+  size: 16,
+  total: 0,
+})
+
+const reviewForm = reactive({
+  isHarmful: false,
+  harmfulReason: '',
+  reviewTags: [] as string[],
+  reviewComment: '',
+})
+
+function getEventName(item: any): string {
+  return item.event_name || item.eventName || item.title || "暂无事件名"
+}
+
+function getRiskDescription(item: any): string {
+  const raw = item.risk_description || item.riskDescription || item.summary || item.content
+  return formatSummary(raw)
+}
+
+function normalizeClueData(item: any): any {
+  return {
+    ...item,
+    event_name: getEventName(item),
+    eventName: getEventName(item),
+    title: getEventName(item),
+    risk_description: getRiskDescription(item),
+    riskDescription: getRiskDescription(item),
+    summary: getRiskDescription(item),
+  }
+}
+function riskTagType(level: string): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
+  const map: Record<string, 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
+    high: 'danger',
+    medium: 'warning',
+    low: 'success',
+    info: 'info',
+  }
+  return map[level] || 'info'
+}
+
+function extractDomain(url: string): string {
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : 'https://' + url)
+    return urlObj.hostname
+  } catch {
+    return '信息'
+  }
+}
+
+function riskLabel(level: string, url?: string, siteName?: string): string {
+  if (level === 'info') {
+    if (siteName) {
+      return siteName
+    }
+    if (url) {
+      return extractDomain(url)
+    }
+  }
+  const map: Record<string, string> = { high: '高危', medium: '中危', low: '低危', info: '信息' }
+  return map[level] || level
+}
+
+function reviewTagType(status: number): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
+  if (status === 10) return 'warning'
+  if (status === 20) return 'success'
+  if (status === 40) return 'danger'
+  return 'info'
+}
+
+function reviewLabel(status: number): string {
+  if (status === 10) return '待审核'
+  if (status === 20) return '已审核'
+  if (status === 40) return '已驳回'
+  return '未知'
+}
+
+function sourceTagType(source: string): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
+  return source === 'crawl' ? 'info' : 'primary'
+}
+
+function sourceLabel(source: string): string {
+  const map: Record<string, string> = { crawl: '开源网站', report: '报送' }
+  return map[source] || source
+}
+
+function riskLevelLabel(level: string): string {
+  const map: Record<string, string> = { high: '高危', medium: '中危', low: '低危', info: '信息' }
+  return map[level] || level
+}
+
+const hasExtraFilters = computed(() => {
+  return !!(
+    filters.keyword ||
+    filters.riskLevel ||
+    filters.sourceType ||
+    (filters.dateRange && filters.dateRange.length === 2)
+  )
+})
+
+const activeFilterChips = computed(() => {
+  const chips: { key: string; label: string }[] = []
+  if (filters.keyword) chips.push({ key: 'keyword', label: `关键词: ${filters.keyword}` })
+  if (filters.riskLevel) chips.push({ key: 'riskLevel', label: `风险: ${riskLevelLabel(filters.riskLevel)}` })
+  if (filters.reviewStatus !== undefined) {
+    chips.push({ key: 'reviewStatus', label: `状态: ${reviewLabel(filters.reviewStatus)}` })
+  }
+  if (filters.sourceType) chips.push({ key: 'sourceType', label: `来源: ${sourceLabel(filters.sourceType)}` })
+  if (filters.dateRange?.length === 2) {
+    chips.push({ key: 'dateRange', label: `${filters.dateRange[0]} ~ ${filters.dateRange[1]}` })
+  }
+  return chips
+})
+
+function removeFilterChip(key: string) {
+  if (key === 'keyword') filters.keyword = ''
+  if (key === 'riskLevel') filters.riskLevel = ''
+  if (key === 'reviewStatus') filters.reviewStatus = undefined
+  if (key === 'sourceType') filters.sourceType = ''
+  if (key === 'dateRange') filters.dateRange = []
+  handleSearch()
+}
+
+function filterByStat(type: 'total' | 'pending' | 'reviewed' | 'rejected') {
+  if (type === 'total') {
+    filters.reviewStatus = undefined
+  } else if (type === 'pending') {
+    filters.reviewStatus = 10
+  } else if (type === 'reviewed') {
+    filters.reviewStatus = 20
+  } else if (type === 'rejected') {
+    filters.reviewStatus = 40
+  }
+  handleSearch()
+}
+
+function navigateClue(direction: 1 | -1) {
+  if (!clueList.value.length) return
+  const currentIndex = clueList.value.findIndex((c) => c.id === currentClue.value?.id)
+  let nextIndex = currentIndex < 0 ? 0 : currentIndex + direction
+  if (nextIndex < 0) nextIndex = clueList.value.length - 1
+  if (nextIndex >= clueList.value.length) nextIndex = 0
+  openDetail(clueList.value[nextIndex])
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  const target = e.target as HTMLElement
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+    return
+  }
+  if (e.key === 'Escape' && drawerVisible.value) {
+    drawerVisible.value = false
+    return
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (drawerVisible.value) navigateClue(1)
+    else if (clueList.value[0]) openDetail(clueList.value[0])
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (drawerVisible.value) navigateClue(-1)
+    else if (clueList.value[0]) openDetail(clueList.value[0])
+  }
+}
+
+function formatSummary(raw?: string): string {
+  if (!raw) return ''
+  let text = String(raw).trim()
+  text = text.replace(/^\s*#{1,6}\s*/g, '')
+  text = text.replace(/^(摘要|summary)\s*[:：]?\s*/i, '')
+  text = text.replace(/\s+/g, ' ')
+  return text
+}
+
+function formatDateTime(raw?: string): string {
+  if (!raw) return '-'
+  let dateStr = String(raw).trim()
+  dateStr = dateStr.replace('T', ' ')
+  dateStr = dateStr.replace('Z', '')
+  if (dateStr.includes('.')) {
+    dateStr = dateStr.split('.')[0]
+  }
+  return dateStr
+}
+
+/** 卡片底部时间：短日期 + 时分 */
+function formatCardTime(raw?: string): string {
+  if (!raw) return '—'
+  const s = String(raw).trim()
+  if (s.length >= 16) return s.slice(5, 16)
+  if (s.length >= 10) return s.slice(5, 10)
+  return s
+}
+
+async function fetchData() {
+  loading.value = true
+  try {
+    const params: Record<string, unknown> = {
+      page: pagination.page,
+      size: pagination.size,
+    }
+    if (filters.keyword) params.keyword = filters.keyword
+    if (filters.riskLevel) params.riskLevel = filters.riskLevel
+    if (filters.reviewStatus) params.reviewStatus = filters.reviewStatus
+    if (filters.sourceType) params.sourceType = filters.sourceType
+    if (filters.dateRange && filters.dateRange.length === 2) {
+      params.startTime = filters.dateRange[0]
+      params.endTime = filters.dateRange[1]
+    }
+    const res = await searchRiskClue(params as any)
+    const data = res as any
+    const rawList = data?.rows || data?.records || data?.list || data?.data || []
+    clueList.value = rawList.map(normalizeClueData)
+    pagination.total = data?.total || 0
+  } catch {
+    clueList.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+async function fetchStats() {
+  try {
+    const res = await getRiskClueStats()
+    const data = res as any
+    stats.total = data?.total || 0
+    stats.pending = data?.pending || 0
+    stats.reviewed = data?.reviewed || 0
+    stats.rejected = data?.rejected || 0
+  } catch {
+    // ignore
+  }
+}
+
+async function openDetail(item: RiskClue) {
+  try {
+    const res = await getRiskClueById(item.id)
+    currentClue.value = normalizeClueData(res as unknown as RiskClue)
+  } catch {
+    currentClue.value = normalizeClueData(item)
+  }
+  drawerVisible.value = true
+
+  // Reset review form
+  reviewForm.isHarmful = false
+  reviewForm.harmfulReason = ''
+  reviewForm.reviewTags = []
+  reviewForm.reviewComment = ''
+
+  // Load review history
+  try {
+    const res = await getReviewHistory(item.id)
+    reviewHistory.value = (res as unknown as ReviewRecord[]) || []
+  } catch {
+    reviewHistory.value = []
+  }
+}
+
+async function handleSubmitReview() {
+  if (!currentClue.value) return
+  reviewLoading.value = true
+  try {
+    await reviewClue({
+      clueId: currentClue.value.id,
+      isHarmful: reviewForm.isHarmful,
+      harmfulReason: reviewForm.harmfulReason,
+      reviewTags: reviewForm.reviewTags,
+      reviewComment: reviewForm.reviewComment,
+    })
+    ElMessage.success('审核提交成功')
+    drawerVisible.value = false
+    fetchData()
+    fetchStats()
+  } catch {
+    ElMessage.error('审核提交失败')
+  } finally {
+    reviewLoading.value = false
+  }
+}
+
+function handleSearch() {
+  pagination.page = 1
+  fetchData()
+}
+
+function handleReset() {
+  filters.keyword = ''
+  filters.riskLevel = ''
+  filters.reviewStatus = undefined
+  filters.sourceType = ''
+  filters.dateRange = []
+  pagination.page = 1
+  fetchData()
+}
+
+onMounted(() => {
+  fetchData()
+  fetchStats()
+  fetchTagTree()
+  document.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+  stopResize()
+})
+</script>
+
+<style lang="scss" scoped src="./risk-clue.scss"></style>

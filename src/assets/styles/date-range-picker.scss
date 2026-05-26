@@ -1,0 +1,116 @@
+@use './variables.scss' as *;
+
+/* 统一日期范围筛选：输入框 + 弹出面板 */
+.app-date-range-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.app-date-range-field__icon {
+  position: absolute;
+  left: 10px;
+  z-index: 2;
+  font-size: 14px;
+  color: rgba(120, 150, 200, 0.55);
+  pointer-events: none;
+}
+
+.app-date-range.el-date-editor {
+  height: 38px;
+  --el-date-editor-width: 260px;
+  padding: 0 8px 0 30px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(79, 124, 255, 0.12);
+  border-radius: $border-radius-md;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: border-color 0.2s $ease-out, box-shadow 0.2s $ease-out;
+
+  &:hover {
+    border-color: rgba(99, 140, 255, 0.26);
+  }
+
+  &.is-active {
+    border-color: rgba(99, 140, 255, 0.42);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 0 0 3px rgba(79, 124, 255, 0.1);
+  }
+}
+
+.app-date-range--full {
+  width: 100%;
+  --el-date-editor-width: 100%;
+}
+
+.app-date-range .el-range-input {
+  width: 34%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+
+  &::placeholder {
+    color: rgba(150, 170, 200, 0.45);
+  }
+}
+
+.app-date-range .el-range-separator {
+  flex: none;
+  padding: 0 2px;
+  color: rgba(130, 155, 195, 0.55);
+  font-size: 12px;
+  line-height: 38px;
+}
+
+.app-date-range .el-range__icon {
+  display: none;
+}
+
+.app-date-range .el-range__close-icon {
+  color: rgba(150, 170, 200, 0.55);
+  font-size: 13px;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.85);
+  }
+}
+
+/* 弹出日历面板（teleport 到 body） */
+.app-date-range-popper.el-picker__popper {
+  background: linear-gradient(180deg, rgba(14, 24, 44, 0.98), rgba(8, 14, 26, 0.99)) !important;
+  border: 1px solid rgba(79, 124, 255, 0.22) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5) !important;
+}
+
+.app-date-range-popper .el-picker-panel {
+  background: transparent;
+  color: rgba(230, 237, 247, 0.9);
+}
+
+.app-date-range-popper .el-date-range-picker__header,
+.app-date-range-popper .el-date-table th {
+  color: rgba(180, 195, 220, 0.75);
+}
+
+.app-date-range-popper .el-date-table td.available .el-date-table-cell__text {
+  color: rgba(220, 228, 245, 0.88);
+}
+
+.app-date-range-popper .el-date-table td.in-range .el-date-table-cell {
+  background: rgba(79, 124, 255, 0.12);
+}
+
+.app-date-range-popper .el-date-table td.start-date .el-date-table-cell__text,
+.app-date-range-popper .el-date-table td.end-date .el-date-table-cell__text {
+  background: rgba(79, 124, 255, 0.85);
+  color: #fff;
+}
+
+.app-date-range-popper .el-picker-panel__icon-btn {
+  color: rgba(180, 195, 220, 0.75);
+}
+
+.app-date-range-popper .el-picker-panel__icon-btn:hover {
+  color: rgba(255, 255, 255, 0.95);
+}

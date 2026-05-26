@@ -1,0 +1,26 @@
+-- 供应链标签表
+CREATE TABLE IF NOT EXISTS `biz_supply_chain_tag` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `tag_name` VARCHAR(100) NOT NULL COMMENT '节点名称（对应：阶段、子阶段、技术/工具名称）',
+  `parent_id` BIGINT DEFAULT 0 COMMENT '父节点ID（0表示顶级阶段）',
+  `node_type` VARCHAR(50) NOT NULL COMMENT '节点类型（枚举：stage 阶段, sub_stage 子阶段, leaf 具体技术）',
+  `biz_type` VARCHAR(50) NULL COMMENT '业务形态（如：开源软件、商业平台、开源方法等）',
+  `developer` VARCHAR(100) NULL COMMENT '归属方/开发团队（如：NVIDIA, unstructured-io社区）',
+  `intro` VARCHAR(500) NULL COMMENT '核心能力一句话介绍',
+  `remark` VARCHAR(1000) NULL COMMENT '补充说明信息',
+  `level` INT NOT NULL COMMENT '层级深度（1:阶段, 2:子阶段, 3:技术）',
+  `is_leaf` TINYINT(1) DEFAULT 0 COMMENT '是否为叶子节点（1是，0否。只有叶子节点上述4个新增字段才有值）',
+  `tag_path` VARCHAR(255) NOT NULL COMMENT '路径枚举（格式：/父ID/自身ID/，用于极速树形查询）',
+  `ancestor_ids` VARCHAR(255) NOT NULL COMMENT '祖先ID集合（格式：1,5，方便快速判断和路径回溯）',
+  `sort_order` INT DEFAULT 0 COMMENT '同级展示排序权重',
+  `ext_info` JSON NULL COMMENT '扩展信息字段，应对未来特化属性',
+  `status` TINYINT(1) DEFAULT 1 COMMENT '状态（1正常，0禁用）',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_parent_id` (`parent_id`),
+  KEY `idx_node_type` (`node_type`),
+  KEY `idx_level` (`level`),
+  KEY `idx_tag_path` (`tag_path`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='供应链标签表';
