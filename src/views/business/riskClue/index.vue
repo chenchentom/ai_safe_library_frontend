@@ -25,6 +25,7 @@
           :aria-selected="filterTab === 'submission'"
           @click="filterTab = 'submission'"
         >
+          <el-icon class="filter-tabs__icon"><Upload /></el-icon>
           报送相关
           <span v-if="submissionFilterCount" class="filter-tabs__badge">{{ submissionFilterCount }}</span>
         </button>
@@ -36,6 +37,7 @@
           :aria-selected="filterTab === 'audit'"
           @click="filterTab = 'audit'"
         >
+          <el-icon class="filter-tabs__icon"><Stamp /></el-icon>
           审核相关
           <span v-if="auditFilterCount" class="filter-tabs__badge">{{ auditFilterCount }}</span>
         </button>
@@ -45,10 +47,16 @@
         <!-- 报送相关 -->
         <div v-show="filterTab === 'submission'" class="filter-tab-panel">
           <section class="filter-section">
-            <h3 class="filter-section__title">类别与时间</h3>
+            <h3 class="filter-section__title">
+              <el-icon><Grid /></el-icon>
+              类别与时间
+            </h3>
             <div class="filter-fields">
               <div class="filter-field">
-                <label class="filter-label">报送类别</label>
+                <label class="filter-label">
+                  <el-icon><CollectionTag /></el-icon>
+                  报送类别
+                </label>
                 <el-cascader
                   v-model="filters.riskCategory"
                   :options="tagTree"
@@ -60,7 +68,10 @@
                 />
               </div>
               <div class="filter-field">
-                <label class="filter-label">报送时间</label>
+                <label class="filter-label">
+                  <el-icon><Calendar /></el-icon>
+                  报送时间
+                </label>
                 <el-date-picker
                   v-model="filters.submissionDateRange"
                   type="daterange"
@@ -78,47 +89,78 @@
           </section>
 
           <section class="filter-section">
-            <h3 class="filter-section__title">文本检索</h3>
+            <h3 class="filter-section__title">
+              <el-icon><EditPen /></el-icon>
+              文本检索
+            </h3>
             <div class="filter-fields">
               <div class="filter-field">
-                <label class="filter-label">来源网站</label>
+                <label class="filter-label">
+                  <el-icon><Monitor /></el-icon>
+                  来源网站
+                </label>
                 <el-input
                   v-model="filters.sourceWebsite"
                   placeholder="模糊匹配来源网站"
                   clearable
                   class="filter-control"
                   @keyup.enter="handleSearch"
-                />
+                >
+                  <template #prefix>
+                    <el-icon><Link /></el-icon>
+                  </template>
+                </el-input>
               </div>
               <div class="filter-field">
-                <label class="filter-label">运营主体</label>
+                <label class="filter-label">
+                  <el-icon><OfficeBuilding /></el-icon>
+                  运营主体
+                </label>
                 <el-input
                   v-model="filters.operatingEntity"
                   placeholder="模糊匹配报送运营主体"
                   clearable
                   class="filter-control"
                   @keyup.enter="handleSearch"
-                />
+                >
+                  <template #prefix>
+                    <el-icon><OfficeBuilding /></el-icon>
+                  </template>
+                </el-input>
               </div>
               <div class="filter-field">
-                <label class="filter-label">报送渠道</label>
+                <label class="filter-label">
+                  <el-icon><Share /></el-icon>
+                  报送渠道
+                </label>
                 <el-input
                   v-model="filters.submissionChannel"
                   placeholder="模糊匹配报送渠道"
                   clearable
                   class="filter-control"
                   @keyup.enter="handleSearch"
-                />
+                >
+                  <template #prefix>
+                    <el-icon><Share /></el-icon>
+                  </template>
+                </el-input>
               </div>
               <div class="filter-field">
-                <label class="filter-label">产品/组件/服务</label>
+                <label class="filter-label">
+                  <el-icon><Goods /></el-icon>
+                  产品/组件/服务
+                </label>
                 <el-input
                   v-model="filters.productsComponentsServices"
                   placeholder="模糊匹配产品或服务"
                   clearable
                   class="filter-control"
                   @keyup.enter="handleSearch"
-                />
+                >
+                  <template #prefix>
+                    <el-icon><Goods /></el-icon>
+                  </template>
+                </el-input>
               </div>
             </div>
           </section>
@@ -127,10 +169,16 @@
         <!-- 审核相关 -->
         <div v-show="filterTab === 'audit'" class="filter-tab-panel">
           <section class="filter-section">
-            <h3 class="filter-section__title">状态与入库</h3>
+            <h3 class="filter-section__title">
+              <el-icon><Flag /></el-icon>
+              状态与入库
+            </h3>
             <div class="filter-fields">
               <div class="filter-field">
-                <label class="filter-label">审核状态</label>
+                <label class="filter-label">
+                  <el-icon><Clock /></el-icon>
+                  审核状态
+                </label>
                 <div class="filter-segment" role="group" aria-label="审核状态">
                   <button
                     type="button"
@@ -138,6 +186,7 @@
                     :class="{ 'is-active': filters.reviewStatus === undefined }"
                     @click="filters.reviewStatus = undefined"
                   >
+                    <el-icon><Grid /></el-icon>
                     全部
                   </button>
                   <button
@@ -146,6 +195,7 @@
                     :class="{ 'is-active': filters.reviewStatus === 10 }"
                     @click="filters.reviewStatus = 10"
                   >
+                    <el-icon><Timer /></el-icon>
                     未审核
                   </button>
                   <button
@@ -154,12 +204,16 @@
                     :class="{ 'is-active': filters.reviewStatus === 20 }"
                     @click="filters.reviewStatus = 20"
                   >
+                    <el-icon><CircleCheck /></el-icon>
                     已审核
                   </button>
                 </div>
               </div>
               <div class="filter-field">
-                <label class="filter-label">是否入库</label>
+                <label class="filter-label">
+                  <el-icon><Box /></el-icon>
+                  是否入库
+                </label>
                 <div class="filter-segment filter-segment--2" role="group" aria-label="是否入库">
                   <button
                     type="button"
@@ -167,6 +221,7 @@
                     :class="{ 'is-active': filters.isWarehouse === undefined }"
                     @click="filters.isWarehouse = undefined"
                   >
+                    <el-icon><Grid /></el-icon>
                     全部
                   </button>
                   <button
@@ -175,6 +230,7 @@
                     :class="{ 'is-active': filters.isWarehouse === 1 }"
                     @click="filters.isWarehouse = 1"
                   >
+                    <el-icon><Box /></el-icon>
                     已入库
                   </button>
                   <button
@@ -183,6 +239,7 @@
                     :class="{ 'is-active': filters.isWarehouse === 0 }"
                     @click="filters.isWarehouse = 0"
                   >
+                    <el-icon><Remove /></el-icon>
                     未入库
                   </button>
                 </div>
@@ -191,10 +248,16 @@
           </section>
 
           <section class="filter-section">
-            <h3 class="filter-section__title">审核内容</h3>
+            <h3 class="filter-section__title">
+              <el-icon><DocumentChecked /></el-icon>
+              审核内容
+            </h3>
             <div class="filter-fields">
               <div class="filter-field">
-                <label class="filter-label">审核类别</label>
+                <label class="filter-label">
+                  <el-icon><CollectionTag /></el-icon>
+                  审核类别
+                </label>
                 <el-cascader
                   v-model="filters.auditRiskCategory"
                   :options="tagTree"
@@ -206,27 +269,44 @@
                 />
               </div>
               <div class="filter-field">
-                <label class="filter-label">审核运营主体</label>
+                <label class="filter-label">
+                  <el-icon><OfficeBuilding /></el-icon>
+                  审核运营主体
+                </label>
                 <el-input
                   v-model="filters.operatingEntityHuman"
                   placeholder="模糊匹配审核运营主体"
                   clearable
                   class="filter-control"
                   @keyup.enter="handleSearch"
-                />
+                >
+                  <template #prefix>
+                    <el-icon><OfficeBuilding /></el-icon>
+                  </template>
+                </el-input>
               </div>
               <div class="filter-field">
-                <label class="filter-label">审核人</label>
+                <label class="filter-label">
+                  <el-icon><User /></el-icon>
+                  审核人
+                </label>
                 <el-input
                   v-model="filters.auditUserName"
                   placeholder="模糊匹配审核人姓名"
                   clearable
                   class="filter-control"
                   @keyup.enter="handleSearch"
-                />
+                >
+                  <template #prefix>
+                    <el-icon><User /></el-icon>
+                  </template>
+                </el-input>
               </div>
               <div class="filter-field">
-                <label class="filter-label">审核时间</label>
+                <label class="filter-label">
+                  <el-icon><Calendar /></el-icon>
+                  审核时间
+                </label>
                 <el-date-picker
                   v-model="filters.auditDateRange"
                   type="daterange"
@@ -259,23 +339,54 @@
 
     <!-- MIDDLE: Card Grid -->
     <div class="main-content">
-      <header class="content-header">
-        <div class="content-header__titles">
-          <h1 class="page-title">风险线索库</h1>
-          <span class="page-subtitle">采集、检索与审核 AI 安全风险线索</span>
-        </div>
-        <div v-if="!loading" class="content-header__meta">
-          <span class="result-count">
-            共 <strong>{{ pagination.total }}</strong> 条
-            <template v-if="clueList.length && pagination.total > clueList.length">
-              · 当前页 {{ clueList.length }} 条
-            </template>
+      <header class="page-command-bar" aria-label="风险线索库概览">
+        <div class="page-command-bar__intro">
+          <span class="page-command-bar__icon" aria-hidden="true">
+            <el-icon :size="20"><Warning /></el-icon>
           </span>
+          <div class="page-command-bar__headline">
+            <h1 class="page-command-bar__title">风险线索库</h1>
+            <span class="page-command-bar__sep" aria-hidden="true">·</span>
+            <p class="page-command-bar__desc">采集、检索与审核 AI 安全风险线索</p>
+          </div>
+        </div>
+
+        <div class="page-command-bar__stats" role="group" aria-label="线索统计">
+          <button
+            v-for="card in statsCards"
+            :key="card.key"
+            type="button"
+            class="stat-pill"
+            :class="[
+              `stat-pill--${card.tone}`,
+              {
+                'is-active': card.isActive,
+                'has-alert': card.key === 'pending' && stats.pending > 0,
+              },
+            ]"
+            @click="filterByStat(card.key)"
+          >
+            <span class="stat-pill__icon" :style="{ background: card.iconBg }">
+              <el-icon :size="14" :color="card.iconColor">
+                <component :is="card.icon" />
+              </el-icon>
+            </span>
+            <span class="stat-pill__value">{{ card.value.toLocaleString() }}</span>
+            <span class="stat-pill__label">{{ card.label }}</span>
+            <span
+              v-if="card.key === 'pending' && stats.pending > 0"
+              class="stat-pill__pulse"
+              aria-hidden="true"
+            />
+          </button>
         </div>
       </header>
 
       <div v-if="activeFilterChips.length" class="active-filters">
-        <span class="active-filters-label">筛选</span>
+        <span class="active-filters-label">
+          <el-icon><Filter /></el-icon>
+          筛选
+        </span>
         <el-tag
           v-for="chip in activeFilterChips"
           :key="chip.key"
@@ -290,17 +401,19 @@
 
       <!-- Search Bar -->
       <div class="search-bar">
-        <el-input
-          v-model="filters.keyword"
-          placeholder="搜索事件名称、风险描述、全文内容…"
-          clearable
-          class="search-input"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+        <div class="search-bar__shell">
+          <el-input
+            v-model="filters.keyword"
+            placeholder="搜索事件名称、风险描述、全文内容…"
+            clearable
+            class="search-input"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <el-icon class="search-input__icon"><Search /></el-icon>
+            </template>
+          </el-input>
+        </div>
         <el-button type="primary" class="search-btn" @click="handleSearch">
           <el-icon><Search /></el-icon>
           搜索
@@ -314,78 +427,84 @@
           v-for="(item, index) in clueList"
           :key="item.id"
           class="clue-card"
-          :class="{ 'is-selected': currentClue?.id === item.id && drawerVisible }"
+          :class="{
+            'is-selected': currentClue?.id === item.id && drawerVisible,
+            'is-pending-review': getAuditStatus(item) === 10,
+          }"
           :style="{ '--card-i': index }"
           role="button"
           tabindex="0"
           @click="openDetail(item)"
           @keydown.enter.prevent="openDetail(item)"
         >
+          <div
+            class="card-accent"
+            :class="'card-accent--' + reviewStatusClass(getAuditStatus(item))"
+            aria-hidden="true"
+          />
           <div class="card-body">
             <header class="card-head">
               <span class="card-index">{{ String(index + 1).padStart(2, '0') }}</span>
-              <span v-if="getSourceWebsite(item)" class="card-source">{{ getSourceWebsite(item) }}</span>
-              <span v-else class="card-source card-source--muted">未知来源</span>
+              <span v-if="getSourceWebsite(item)" class="card-source">
+                <el-icon class="card-source__icon"><Link /></el-icon>
+                {{ getSourceWebsite(item) }}
+              </span>
+              <span v-else class="card-source card-source--muted">
+                <el-icon class="card-source__icon"><Monitor /></el-icon>
+                未知来源
+              </span>
               <span
                 class="card-status"
                 :class="'card-status--' + reviewStatusClass(getAuditStatus(item))"
               >
+                <el-icon><component :is="reviewStatusIcon(getAuditStatus(item))" /></el-icon>
                 {{ reviewLabel(getAuditStatus(item)) }}
               </span>
             </header>
 
             <div class="card-main">
-              <h2 class="card-title">{{ getEventName(item) }}</h2>
+              <h2 class="card-title">
+                <el-icon class="card-title__icon"><Warning /></el-icon>
+                {{ getEventName(item) }}
+              </h2>
               <p class="card-desc">{{ getCardRiskDescription(item) }}</p>
             </div>
 
             <div class="card-meta-row">
               <template v-if="isCardReviewed(item)">
-                <el-tag
-                  size="small"
-                  effect="plain"
-                  class="card-meta-tag"
+                <span
+                  class="card-chip"
                   :class="
                     getCardWarehouse(item) === 1
-                      ? 'card-meta-tag--warehouse-yes'
-                      : 'card-meta-tag--warehouse-no'
+                      ? 'card-chip--warehouse-yes'
+                      : 'card-chip--warehouse-no'
                   "
                 >
+                  <el-icon><Box /></el-icon>
                   {{ getCardWarehouse(item) === 1 ? '已入库' : '未入库' }}
-                </el-tag>
-                <el-tag
-                  v-if="getCardOperatingEntity(item)"
-                  size="small"
-                  effect="plain"
-                  class="card-meta-tag card-meta-tag--entity"
-                >
+                </span>
+                <span v-if="getCardOperatingEntity(item)" class="card-chip card-chip--entity">
+                  <el-icon><OfficeBuilding /></el-icon>
                   {{ getCardOperatingEntity(item) }}
-                </el-tag>
+                </span>
               </template>
               <template v-else>
-                <el-tag
-                  v-if="getCardSubmissionChannel(item)"
-                  size="small"
-                  effect="plain"
-                  class="card-meta-tag card-meta-tag--channel"
-                >
+                <span v-if="getCardSubmissionChannel(item)" class="card-chip card-chip--channel">
+                  <el-icon><Share /></el-icon>
                   {{ sourceLabel(getCardSubmissionChannel(item)) }}
-                </el-tag>
+                </span>
               </template>
-              <el-tag
+              <span
                 v-for="(label, tagIndex) in item._cardCategories || []"
                 :key="`${item.id}-cat-${tagIndex}`"
-                size="small"
-                :type="isCardReviewed(item) ? 'success' : 'warning'"
-                effect="plain"
-                :class="[
-                  'card-category-tag',
-                  isCardReviewed(item) ? 'card-category-tag--audit' : 'card-category-tag--report',
-                ]"
+                class="card-chip"
+                :class="isCardReviewed(item) ? 'card-chip--category-audit' : 'card-chip--category-report'"
               >
+                <el-icon><CollectionTag /></el-icon>
                 {{ label }}
-              </el-tag>
+              </span>
               <time class="card-meta-row__time" :title="isCardReviewed(item) ? '审核时间' : '报送时间'">
+                <el-icon><Clock /></el-icon>
                 {{ formatCardTime(getCardDisplayTime(item)) }}
               </time>
             </div>
@@ -393,28 +512,41 @@
         </article>
         <div v-if="!loading && clueList.length === 0" class="empty-state">
           <div class="empty-icon-wrap">
-            <el-icon :size="40"><Document /></el-icon>
+            <el-icon :size="40"><FolderOpened /></el-icon>
           </div>
           <p class="empty-title">无匹配线索</p>
           <p class="empty-hint">尝试调整筛选条件或清空关键词</p>
-          <el-button type="primary" plain size="small" @click="handleReset">清空筛选</el-button>
+          <el-button type="primary" plain size="small" @click="handleReset">
+            <el-icon><RefreshLeft /></el-icon>
+            清空筛选
+          </el-button>
         </div>
         </div>
       </div>
 
-      <!-- Pagination -->
-      <div class="pagination-wrap">
+      <footer class="pagination-bar">
+        <div v-if="!loading" class="pagination-bar__summary">
+          <span class="pagination-bar__icon" aria-hidden="true">
+            <el-icon><List /></el-icon>
+          </span>
+          <span class="pagination-bar__text">
+            共 <strong>{{ pagination.total.toLocaleString() }}</strong> 条线索
+            <template v-if="pagination.total > 0">
+              · 第 <strong>{{ pagination.page }}</strong> / {{ totalPages }} 页
+            </template>
+          </span>
+        </div>
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.size"
+          class="clue-pagination"
           :total="pagination.total"
           :page-sizes="[12, 16, 24, 48]"
-          layout="total, sizes, prev, pager, next, jumper"
-          background
+          layout="sizes, prev, pager, next, jumper"
           @size-change="fetchData"
           @current-change="fetchData"
         />
-      </div>
+      </footer>
     </div>
 
     <!-- RIGHT: Detail Panel -->
@@ -425,8 +557,15 @@
     >
       <div class="panel-header">
         <div class="panel-header__left">
-          <span class="panel-title">线索详情</span>
-          <span class="panel-kbd-hint">↑↓ 切换 · Esc 关闭</span>
+          <span class="panel-title">
+            <el-icon class="panel-title__icon"><Document /></el-icon>
+            线索详情
+          </span>
+          <span class="panel-kbd-hint">
+            <el-icon><ArrowUp /></el-icon>
+            <el-icon><ArrowDown /></el-icon>
+            切换 · Esc 关闭
+          </span>
         </div>
         <div class="panel-header__actions">
           <button
@@ -471,17 +610,26 @@
         </div>
 
         <section class="detail-block detail-block--highlight">
-          <h4 class="section-title">风险描述</h4>
+          <h4 class="section-title">
+            <span class="section-title__icon section-title__icon--risk"><el-icon><Warning /></el-icon></span>
+            风险描述
+          </h4>
           <p class="detail-prose">{{ getRiskDescription(currentClue) || '—' }}</p>
         </section>
 
         <section v-if="currentClue.content" class="detail-block">
-          <h4 class="section-title">全文内容</h4>
+          <h4 class="section-title">
+            <span class="section-title__icon"><el-icon><Reading /></el-icon></span>
+            全文内容
+          </h4>
           <div class="detail-content-scroll">{{ currentClue.content }}</div>
         </section>
 
         <section class="detail-block">
-          <h4 class="section-title">来源信息</h4>
+          <h4 class="section-title">
+            <span class="section-title__icon"><el-icon><Link /></el-icon></span>
+            来源信息
+          </h4>
           <dl class="detail-dl">
             <div v-if="currentClue.source_website || currentClue.sourceWebsite || currentClue.siteName" class="detail-dl__row">
               <dt>来源网站</dt>
@@ -504,14 +652,23 @@
         </section>
 
         <section class="detail-block">
-          <h4 class="section-title">报送信息</h4>
+          <h4 class="section-title">
+            <span class="section-title__icon"><el-icon><Upload /></el-icon></span>
+            报送信息
+          </h4>
           <div class="detail-key-grid">
             <div class="detail-key-card detail-key-card--category">
-              <span class="detail-key-card__label">报送类别</span>
+              <span class="detail-key-card__label">
+                <el-icon><CollectionTag /></el-icon>
+                报送类别
+              </span>
               <span class="detail-key-card__value">{{ getReportCategory(currentClue) }}</span>
             </div>
             <div class="detail-key-card detail-key-card--entity">
-              <span class="detail-key-card__label">运营主体</span>
+              <span class="detail-key-card__label">
+                <el-icon><OfficeBuilding /></el-icon>
+                运营主体
+              </span>
               <span class="detail-key-card__value">
                 {{ currentClue.operating_entity || currentClue.operatingEntity || '—' }}
               </span>
@@ -539,18 +696,28 @@
 
         <section v-if="getAuditStatus(currentClue) === 20" class="detail-block detail-block--audit">
           <header class="detail-block__header">
-            <h4 class="section-title">审核结论</h4>
+            <h4 class="section-title">
+              <span class="section-title__icon section-title__icon--audit"><el-icon><CircleCheck /></el-icon></span>
+              审核结论
+            </h4>
             <el-tag :type="(currentClue.is_warehouse ?? currentClue.isWarehouse) === 1 ? 'success' : 'info'" size="small" effect="plain">
+              <el-icon style="margin-right: 4px"><Box /></el-icon>
               {{ (currentClue.is_warehouse ?? currentClue.isWarehouse) === 1 ? '已入库' : '未入库' }}
             </el-tag>
           </header>
           <div class="detail-key-grid">
             <div class="detail-key-card detail-key-card--category">
-              <span class="detail-key-card__label">风险类别</span>
+              <span class="detail-key-card__label">
+                <el-icon><CollectionTag /></el-icon>
+                风险类别
+              </span>
               <span class="detail-key-card__value">{{ getHumanReportCategory(currentClue) }}</span>
             </div>
             <div class="detail-key-card detail-key-card--entity">
-              <span class="detail-key-card__label">运营主体</span>
+              <span class="detail-key-card__label">
+                <el-icon><OfficeBuilding /></el-icon>
+                运营主体
+              </span>
               <span class="detail-key-card__value">
                 {{ currentClue.operating_entity_human || currentClue.operatingEntityHuman || '—' }}
               </span>
@@ -590,6 +757,7 @@
             <header class="review-action__header">
               <div class="review-action__header-text">
                 <h4 class="review-action__title">
+                  <el-icon><EditPen /></el-icon>
                   {{ isCardReviewed(currentClue) ? '重新审核' : '审核操作' }}
                 </h4>
                 <p class="review-action__hint">
@@ -618,7 +786,9 @@
                     :class="{ 'is-active': reviewForm.isWarehouse === 1 }"
                     @click="reviewForm.isWarehouse = 1"
                   >
-                    <span class="warehouse-toggle__icon warehouse-toggle__icon--yes">✓</span>
+                    <span class="warehouse-toggle__icon warehouse-toggle__icon--yes">
+                      <el-icon><Box /></el-icon>
+                    </span>
                     <span class="warehouse-toggle__text">
                       <strong>入库</strong>
                       <small>纳入风险线索库</small>
@@ -630,7 +800,9 @@
                     :class="{ 'is-active': reviewForm.isWarehouse === 0 }"
                     @click="reviewForm.isWarehouse = 0"
                   >
-                    <span class="warehouse-toggle__icon warehouse-toggle__icon--no">×</span>
+                    <span class="warehouse-toggle__icon warehouse-toggle__icon--no">
+                      <el-icon><Remove /></el-icon>
+                    </span>
                     <span class="warehouse-toggle__text">
                       <strong>不入库</strong>
                       <small>仅记录审核结论</small>
@@ -770,15 +942,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, type Component } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Close, Clock, Search, Filter, RefreshLeft } from '@element-plus/icons-vue'
+import {
+  Close,
+  Clock,
+  Search,
+  Filter,
+  RefreshLeft,
+  Warning,
+  Document,
+  Link,
+  OfficeBuilding,
+  Box,
+  Calendar,
+  CollectionTag,
+  User,
+  Upload,
+  CircleCheck,
+  CircleClose,
+  DataBoard,
+  Timer,
+  Reading,
+  EditPen,
+  Monitor,
+  Grid,
+  Stamp,
+  Share,
+  Goods,
+  Flag,
+  DocumentChecked,
+  Remove,
+  FolderOpened,
+  ArrowUp,
+  ArrowDown,
+  List,
+} from '@element-plus/icons-vue'
 import {
   searchRiskClue,
   getRiskClueById,
   reviewClue,
   getReviewHistory,
   getTagTree,
+  getRiskClueStats,
   type RiskClue,
   type ReviewRecord,
   type TagCategory,
@@ -793,6 +999,72 @@ const DRAWER_MAX = 1400
 const clueList = ref<RiskClue[]>([])
 const tagTree = ref<TagCategory[]>([])
 const filterTab = ref<'submission' | 'audit'>('submission')
+const stats = reactive({
+  total: 0,
+  pending: 0,
+  reviewed: 0,
+  warehoused: 0,
+})
+
+type StatCardKey = 'pending' | 'total' | 'reviewed' | 'warehoused'
+
+const statsCards = computed(() => {
+  const cards: Array<{
+    key: StatCardKey
+    value: number
+    label: string
+    icon: Component
+    iconColor: string
+    iconBg: string
+    tone: string
+    isActive: boolean
+  }> = [
+    {
+      key: 'pending',
+      value: stats.pending,
+      label: '待审核',
+      icon: Timer,
+      iconColor: '#fbbf24',
+      iconBg: 'rgba(245, 158, 11, 0.14)',
+      tone: 'pending',
+      isActive: filters.reviewStatus === 10,
+    },
+    {
+      key: 'total',
+      value: stats.total,
+      label: '线索总数',
+      icon: DataBoard,
+      iconColor: '#7aa2ff',
+      iconBg: 'rgba(79, 124, 255, 0.14)',
+      tone: 'total',
+      isActive:
+        filters.reviewStatus === undefined &&
+        filters.isWarehouse === undefined &&
+        !hasExtraFilters.value,
+    },
+    {
+      key: 'reviewed',
+      value: stats.reviewed,
+      label: '已审核',
+      icon: CircleCheck,
+      iconColor: '#34d399',
+      iconBg: 'rgba(16, 185, 129, 0.14)',
+      tone: 'reviewed',
+      isActive: filters.reviewStatus === 20 && filters.isWarehouse === undefined,
+    },
+    {
+      key: 'warehoused',
+      value: stats.warehoused,
+      label: '已入库',
+      icon: Box,
+      iconColor: '#6ee7b7',
+      iconBg: 'rgba(16, 185, 129, 0.16)',
+      tone: 'warehoused',
+      isActive: filters.isWarehouse === 1,
+    },
+  ]
+  return cards
+})
 
 const isResizing = ref(false)
 const startX = ref(0)
@@ -867,6 +1139,10 @@ const pagination = reactive({
   size: 16,
   total: 0,
 })
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(pagination.total / pagination.size) || 1)
+)
 
 const reviewForm = reactive({
   isWarehouse: 0 as 0 | 1,
@@ -1012,6 +1288,13 @@ function reviewStatusClass(status: number): string {
   if (status === 20) return 'reviewed'
   if (status === 40) return 'rejected'
   return 'default'
+}
+
+function reviewStatusIcon(status: number): Component {
+  if (status === 10) return Timer
+  if (status === 20) return CircleCheck
+  if (status === 40) return CircleClose
+  return Clock
 }
 
 type CategoryTag = { key: string; label: string; kind: 'report' | 'human' }
@@ -1322,6 +1605,77 @@ const auditFilterCount = computed(() => {
 
 const activeFilterCount = computed(() => activeFilterChips.value.length)
 
+const hasExtraFilters = computed(() => {
+  return !!(
+    filters.keyword ||
+    filters.riskCategory.length ||
+    filters.isWarehouse !== undefined ||
+    filters.auditRiskCategory.length ||
+    filters.operatingEntityHuman ||
+    filters.auditUserName ||
+    filters.auditDateRange.length === 2 ||
+    filters.sourceWebsite ||
+    filters.operatingEntity ||
+    filters.submissionChannel ||
+    filters.productsComponentsServices ||
+    filters.submissionDateRange.length === 2
+  )
+})
+
+function filterByStat(type: StatCardKey) {
+  if (type === 'total') {
+    filters.reviewStatus = undefined
+    filters.isWarehouse = undefined
+  } else if (type === 'pending') {
+    filters.reviewStatus = 10
+    filters.isWarehouse = undefined
+    filterTab.value = 'audit'
+  } else if (type === 'reviewed') {
+    filters.reviewStatus = 20
+    filters.isWarehouse = undefined
+    filterTab.value = 'audit'
+  } else if (type === 'warehoused') {
+    filters.reviewStatus = 20
+    filters.isWarehouse = 1
+    filterTab.value = 'audit'
+  }
+  handleSearch()
+}
+
+async function fetchStats() {
+  try {
+    const res = await getRiskClueStats()
+    const data = (res ?? {}) as Record<string, unknown>
+    stats.total = Number(data.total ?? 0)
+    stats.pending = Number(data.pending ?? 0)
+    stats.reviewed = Number(data.reviewed ?? 0)
+
+    let warehoused = Number(data.warehoused ?? 0)
+    // 兼容未重启的后端：stats 未返回 warehoused 字段时，用与列表相同的搜索条件统计
+    if (data.warehoused === undefined) {
+      warehoused = await countWarehousedFromSearch()
+    }
+    stats.warehoused = warehoused
+  } catch {
+    /* 统计失败不影响列表 */
+  }
+}
+
+async function countWarehousedFromSearch(): Promise<number> {
+  try {
+    const res = await searchRiskClue({
+      reviewStatus: 20,
+      isWarehouse: 1,
+      page: 1,
+      size: 1,
+    } as any)
+    const data = res as Record<string, unknown>
+    return Number(data.total ?? 0)
+  } catch {
+    return 0
+  }
+}
+
 function removeFilterChip(key: string) {
   if (key === 'keyword') filters.keyword = ''
   if (key === 'riskCategory') filters.riskCategory = []
@@ -1500,6 +1854,7 @@ async function handleSubmitReview() {
     })
     ElMessage.success(isRereview ? '重新审核成功' : '审核提交成功')
     await fetchData()
+    await fetchStats()
     try {
       const res = await getRiskClueById(clueId)
       currentClue.value = normalizeClueData(res as unknown as RiskClue)
@@ -1541,6 +1896,7 @@ function handleReset() {
 
 onMounted(() => {
   fetchData()
+  fetchStats()
   fetchTagTree()
   document.addEventListener('keydown', handleKeydown)
 })

@@ -194,7 +194,7 @@ const apiStats = ref<RiskClueStats>({
   total: 0,
   pending: 0,
   reviewed: 0,
-  rejected: 0,
+  warehoused: 0,
 })
 
 interface StatCard {
@@ -243,14 +243,13 @@ const statsCards = computed<StatCard[]>(() => [
     reviewStatus: 20,
   },
   {
-    key: 'rejected',
-    label: '已驳回',
-    value: apiStats.value.rejected,
-    icon: CircleCloseFilled,
-    iconColor: '#ef4444',
-    bgColor: 'linear-gradient(180deg, rgba(239,68,68,.18), rgba(11,18,32,.5))',
-    className: 'stat-rejected',
-    reviewStatus: 40,
+    key: 'warehoused',
+    label: '已入库',
+    value: apiStats.value.warehoused,
+    icon: CollectionTag,
+    iconColor: '#34d399',
+    bgColor: 'linear-gradient(180deg, rgba(16,185,129,.22), rgba(11,18,32,.5))',
+    className: 'stat-reviewed',
   },
 ])
 
@@ -384,7 +383,7 @@ async function fetchDashboardData() {
     apiStats.value.total = data?.total || 0
     apiStats.value.pending = data?.pending || 0
     apiStats.value.reviewed = data?.reviewed || 0
-    apiStats.value.rejected = data?.rejected || 0
+    apiStats.value.warehoused = data?.warehoused || 0
     initTrendFromStats()
   } catch {
   }

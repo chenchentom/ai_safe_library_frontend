@@ -6,13 +6,31 @@
       <section class="sec-query" aria-label="筛选条件">
         <div class="sec-query__shell">
           <header class="sec-query__header">
-            <div class="sec-query__brand">
-              <h1 class="sec-query__title">安全事件库</h1>
-              <span class="sec-query__desc">已审核且已入库</span>
+            <div class="sec-query__intro">
+              <span class="sec-query__icon" aria-hidden="true">
+                <el-icon :size="20"><Lock /></el-icon>
+              </span>
+              <div class="sec-query__headline">
+                <h1 class="sec-query__title">安全事件库</h1>
+                <span class="sec-query__sep" aria-hidden="true">·</span>
+                <p class="sec-query__desc">已审核且已入库的安全事件档案</p>
+              </div>
             </div>
-            <div v-if="!loading" class="sec-query__stat" aria-live="polite">
-              <span class="sec-query__stat-value">{{ statsTotal }}</span>
-              <span class="sec-query__stat-label">事件</span>
+            <div v-if="!loading" class="sec-query__metrics" aria-live="polite">
+              <span class="sec-metric sec-metric--total">
+                <span class="sec-metric__icon">
+                  <el-icon><Box /></el-icon>
+                </span>
+                <strong class="sec-metric__value">{{ statsTotal.toLocaleString() }}</strong>
+                <span class="sec-metric__label">入库事件</span>
+              </span>
+              <span v-if="activeFilterChips.length" class="sec-metric sec-metric--filtered">
+                <span class="sec-metric__icon">
+                  <el-icon><Filter /></el-icon>
+                </span>
+                <strong class="sec-metric__value">{{ pagination.total.toLocaleString() }}</strong>
+                <span class="sec-metric__label">筛选结果</span>
+              </span>
             </div>
           </header>
 
@@ -108,7 +126,11 @@
                         clearable
                         class="sec-query-panel__input"
                         @keyup.enter="applyMoreFilters"
-                      />
+                      >
+                        <template #prefix>
+                          <el-icon><Link /></el-icon>
+                        </template>
+                      </el-input>
                     </div>
                     <div class="sec-query-panel__item">
                       <label class="sec-query-panel__label" for="filter-entity">
@@ -122,7 +144,11 @@
                         clearable
                         class="sec-query-panel__input"
                         @keyup.enter="applyMoreFilters"
-                      />
+                      >
+                        <template #prefix>
+                          <el-icon><OfficeBuilding /></el-icon>
+                        </template>
+                      </el-input>
                     </div>
                     <div class="sec-query-panel__item">
                       <label class="sec-query-panel__label" for="filter-product">
@@ -136,7 +162,11 @@
                         clearable
                         class="sec-query-panel__input"
                         @keyup.enter="applyMoreFilters"
-                      />
+                      >
+                        <template #prefix>
+                          <el-icon><Goods /></el-icon>
+                        </template>
+                      </el-input>
                     </div>
                   </div>
                   <footer class="sec-query-panel__foot">
@@ -166,7 +196,10 @@
 
           <transition name="sec-query-chips">
             <div v-if="activeFilterChips.length" class="sec-query__chips">
-              <span class="sec-query__chips-label">已应用</span>
+              <span class="sec-query__chips-label">
+                <el-icon><Filter /></el-icon>
+                已应用
+              </span>
               <button
                 v-for="chip in activeFilterChips"
                 :key="chip.key"
@@ -187,8 +220,12 @@
       <main class="sec-main">
         <div class="sec-list-head">
           <span v-if="!loading" class="sec-list-head__meta">
+            <el-icon class="sec-list-head__icon"><Document /></el-icon>
             当前页 <strong>{{ eventList.length }}</strong> 条
-            <template v-if="pagination.total"> / 共 {{ pagination.total }} 条</template>
+            <template v-if="pagination.total">
+              <span class="sec-list-head__sep">/</span>
+              共 <strong>{{ pagination.total }}</strong> 条
+            </template>
           </span>
         </div>
 
@@ -206,43 +243,68 @@
               @click="openDetail(item)"
               @keydown.enter.prevent="openDetail(item)"
             >
+              <div class="event-card__accent" aria-hidden="true" />
               <div class="event-card__body">
-                <div class="event-card__title-row">
-                  <span
-                    v-if="getCardCategory(item).label"
-                    class="event-card__category"
-                    :class="`event-card__category--c${getCardCategory(item).colorIndex}`"
-                    :title="getHumanReportCategory(item)"
-                  >
-                    {{ getCardCategory(item).label }}
-                  </span>
-                  <h2 class="event-card__title">{{ getEventName(item) }}</h2>
+                <div class="event-card__top">
+                  <div class="event-card__title-row">
+                    <span
+                      v-if="getCardCategory(item).label"
+                      class="event-card__category"
+                      :class="`event-card__category--c${getCardCategory(item).colorIndex}`"
+                      :title="getHumanReportCategory(item)"
+                    >
+                      <el-icon><CollectionTag /></el-icon>
+                      {{ getCardCategory(item).label }}
+                    </span>
+                    <h2 class="event-card__title">{{ getEventName(item) }}</h2>
+                  </div>
+                  <div class="event-card__badges">
+                    <span class="event-chip event-chip--warehouse">
+                      <el-icon><Box /></el-icon>
+                      已入库
+                    </span>
+                    <span class="event-chip event-chip--audit">
+                      <el-icon><CircleCheck /></el-icon>
+                      已审核
+                    </span>
+                  </div>
                 </div>
 
                 <p class="event-card__desc">{{ getCardRiskDescription(item) }}</p>
 
                 <div class="event-card__meta">
                   <span v-if="getCardSubmissionTime(item)" class="event-card__meta-item">
+                    <el-icon class="event-card__meta-icon"><Calendar /></el-icon>
                     <span class="event-card__meta-key">报送时间</span>
                     <span class="event-card__meta-val">{{ getCardSubmissionTime(item) }}</span>
                   </span>
+                  <span v-if="getSubmissionChannel(item)" class="event-card__meta-item">
+                    <el-icon class="event-card__meta-icon"><Share /></el-icon>
+                    <span class="event-card__meta-key">报送渠道</span>
+                    <span class="event-card__meta-val">{{ sourceLabel(getSubmissionChannel(item)) }}</span>
+                  </span>
                   <span v-if="getSourceWebsite(item)" class="event-card__meta-item">
-                    <span class="event-card__meta-key">来源</span>
+                    <el-icon class="event-card__meta-icon"><Link /></el-icon>
+                    <span class="event-card__meta-key">来源网站</span>
                     <span class="event-card__meta-val">{{ getSourceWebsite(item) }}</span>
                   </span>
                   <span v-if="getCardOperatingEntity(item)" class="event-card__meta-item">
+                    <el-icon class="event-card__meta-icon"><OfficeBuilding /></el-icon>
                     <span class="event-card__meta-key">运营主体</span>
                     <span class="event-card__meta-val">{{ getCardOperatingEntity(item) }}</span>
                   </span>
                   <span v-if="getCardProducts(item)" class="event-card__meta-item">
-                    <span class="event-card__meta-key">产品/组件/服务</span>
+                    <el-icon class="event-card__meta-icon"><Goods /></el-icon>
+                    <span class="event-card__meta-key">产品/服务</span>
                     <span class="event-card__meta-val">{{ getCardProducts(item) }}</span>
                   </span>
                   <span class="event-card__meta-item">
+                    <el-icon class="event-card__meta-icon"><Clock /></el-icon>
                     <span class="event-card__meta-key">审核时间</span>
                     <span class="event-card__meta-val">{{ formatCardDateTime(getCardDisplayTime(item)) }}</span>
                   </span>
                   <span v-if="getCardAuditor(item)" class="event-card__meta-item">
+                    <el-icon class="event-card__meta-icon"><User /></el-icon>
                     <span class="event-card__meta-key">审核人</span>
                     <span class="event-card__meta-val">{{ getCardAuditor(item) }}</span>
                   </span>
@@ -252,27 +314,41 @@
 
             <div v-if="!loading && eventList.length === 0" class="empty-state">
               <div class="empty-icon-wrap">
-                <el-icon :size="40"><Document /></el-icon>
+                <el-icon :size="40"><FolderOpened /></el-icon>
               </div>
               <p class="empty-title">无匹配事件</p>
               <p class="empty-hint">尝试调整顶部筛选条件或清空关键词</p>
-              <el-button type="primary" plain size="small" @click="handleReset">清空筛选</el-button>
+              <el-button type="primary" plain size="small" @click="handleReset">
+                <el-icon><RefreshLeft /></el-icon>
+                清空筛选
+              </el-button>
             </div>
           </div>
         </div>
 
-        <div class="pagination-wrap">
+        <footer class="pagination-bar">
+          <div v-if="!loading" class="pagination-bar__summary">
+            <span class="pagination-bar__icon" aria-hidden="true">
+              <el-icon><List /></el-icon>
+            </span>
+            <span class="pagination-bar__text">
+              共 <strong>{{ pagination.total.toLocaleString() }}</strong> 条事件
+              <template v-if="pagination.total > 0">
+                · 第 <strong>{{ pagination.page }}</strong> / {{ totalPages }} 页
+              </template>
+            </span>
+          </div>
           <el-pagination
             v-model:current-page="pagination.page"
             v-model:page-size="pagination.size"
+            class="sec-pagination"
             :total="pagination.total"
             :page-sizes="[12, 16, 24, 48]"
-            layout="total, sizes, prev, pager, next, jumper"
-            background
+            layout="sizes, prev, pager, next, jumper"
             @size-change="fetchData"
             @current-change="fetchData"
           />
-        </div>
+        </footer>
       </main>
     </div>
 
@@ -283,8 +359,15 @@
     >
       <div class="panel-header">
         <div class="panel-header__left">
-          <span class="panel-title">事件详情</span>
-          <span class="panel-kbd-hint">↑↓ 切换 · Esc 关闭</span>
+          <span class="panel-title">
+            <el-icon class="panel-title__icon"><Lock /></el-icon>
+            事件详情
+          </span>
+          <span class="panel-kbd-hint">
+            <el-icon><ArrowUp /></el-icon>
+            <el-icon><ArrowDown /></el-icon>
+            切换 · Esc 关闭
+          </span>
         </div>
         <button type="button" class="panel-close" aria-label="关闭详情" @click="drawerVisible = false">
           <el-icon><Close /></el-icon>
@@ -295,20 +378,39 @@
         <div v-if="currentEvent" class="detail-content">
           <div class="detail-hero">
             <h3 class="detail-title">{{ getEventName(currentEvent) }}</h3>
+            <div class="detail-hero__tags">
+              <span class="detail-hero__chip detail-hero__chip--warehouse">
+                <el-icon><Box /></el-icon>
+                已入库
+              </span>
+              <span v-if="getHumanReportCategory(currentEvent) !== '—'" class="detail-hero__chip detail-hero__chip--category">
+                <el-icon><CollectionTag /></el-icon>
+                {{ getHumanReportCategory(currentEvent) }}
+              </span>
+            </div>
           </div>
 
           <section class="detail-block detail-block--highlight">
-            <h4 class="section-title">报送风险描述</h4>
+            <h4 class="section-title">
+              <span class="section-title__icon section-title__icon--risk"><el-icon><Warning /></el-icon></span>
+              报送风险描述
+            </h4>
             <p class="detail-prose">{{ getOriginalRiskDescription(currentEvent) || '—' }}</p>
           </section>
 
           <section v-if="getEventContent(currentEvent)" class="detail-block">
-            <h4 class="section-title">全文内容</h4>
+            <h4 class="section-title">
+              <span class="section-title__icon"><el-icon><Reading /></el-icon></span>
+              全文内容
+            </h4>
             <div class="detail-content-scroll">{{ getEventContent(currentEvent) }}</div>
           </section>
 
           <section class="detail-block">
-            <h4 class="section-title">来源信息</h4>
+            <h4 class="section-title">
+              <span class="section-title__icon"><el-icon><Link /></el-icon></span>
+              来源信息
+            </h4>
             <dl class="detail-dl">
               <div v-if="getSourceWebsite(currentEvent)" class="detail-dl__row">
                 <dt>来源网站</dt>
@@ -331,14 +433,23 @@
           </section>
 
           <section class="detail-block">
-            <h4 class="section-title">报送信息</h4>
+            <h4 class="section-title">
+              <span class="section-title__icon"><el-icon><Upload /></el-icon></span>
+              报送信息
+            </h4>
             <div class="detail-key-grid">
               <div class="detail-key-card detail-key-card--category">
-                <span class="detail-key-card__label">报送类别</span>
+                <span class="detail-key-card__label">
+                  <el-icon><CollectionTag /></el-icon>
+                  报送类别
+                </span>
                 <span class="detail-key-card__value">{{ getReportCategory(currentEvent) }}</span>
               </div>
               <div class="detail-key-card detail-key-card--entity">
-                <span class="detail-key-card__label">运营主体</span>
+                <span class="detail-key-card__label">
+                  <el-icon><OfficeBuilding /></el-icon>
+                  运营主体
+                </span>
                 <span class="detail-key-card__value">
                   {{ currentEvent.operating_entity || currentEvent.operatingEntity || '—' }}
                 </span>
@@ -370,15 +481,28 @@
 
           <section class="detail-block detail-block--audit">
             <header class="detail-block__header">
-              <h4 class="section-title">审核结论</h4>
+              <h4 class="section-title">
+                <span class="section-title__icon section-title__icon--audit"><el-icon><CircleCheck /></el-icon></span>
+                审核结论
+              </h4>
+              <span class="detail-block__badge">
+                <el-icon><Box /></el-icon>
+                已入库
+              </span>
             </header>
             <div class="detail-key-grid">
               <div class="detail-key-card detail-key-card--category">
-                <span class="detail-key-card__label">风险类别</span>
+                <span class="detail-key-card__label">
+                  <el-icon><CollectionTag /></el-icon>
+                  风险类别
+                </span>
                 <span class="detail-key-card__value">{{ getHumanReportCategory(currentEvent) }}</span>
               </div>
               <div class="detail-key-card detail-key-card--entity">
-                <span class="detail-key-card__label">运营主体</span>
+                <span class="detail-key-card__label">
+                  <el-icon><OfficeBuilding /></el-icon>
+                  运营主体
+                </span>
                 <span class="detail-key-card__value">
                   {{ currentEvent.operating_entity_human || currentEvent.operatingEntityHuman || '—' }}
                 </span>
@@ -435,6 +559,21 @@ import {
   Operation,
   RefreshLeft,
   Box,
+  Lock,
+  CircleCheck,
+  Filter,
+  CollectionTag,
+  Clock,
+  User,
+  Goods,
+  Share,
+  Warning,
+  Reading,
+  Upload,
+  FolderOpened,
+  ArrowUp,
+  ArrowDown,
+  List,
 } from '@element-plus/icons-vue'
 import { getTagTree, type TagCategory } from '@/api/riskClue'
 import {
@@ -502,6 +641,10 @@ const pagination = reactive({
   total: 0,
 })
 
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(pagination.total / pagination.size) || 1)
+)
+
 async function fetchTagTree() {
   try {
     tagTree.value = (await getTagTree('risk_clue')) || []
@@ -528,7 +671,8 @@ function getEventContent(item: SecurityEvent): string {
 }
 
 function getSubmissionChannel(item: SecurityEvent): string {
-  return item.submission_channel || item.submissionChannel || ''
+  const raw = item.submission_channel || item.submissionChannel || (item as { sourceType?: string }).sourceType
+  return raw ? String(raw).trim() : ''
 }
 
 function getSubmitOrg(item: SecurityEvent): string {

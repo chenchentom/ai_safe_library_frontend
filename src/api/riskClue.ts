@@ -138,7 +138,7 @@ export interface RiskClueStats {
   total: number
   pending: number
   reviewed: number
-  rejected: number
+  warehoused: number
 }
 
 // 搜索参数
