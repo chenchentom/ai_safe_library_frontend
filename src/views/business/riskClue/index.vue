@@ -351,6 +351,13 @@
           </div>
         </div>
 
+        <div class="page-command-bar__actions">
+          <el-button type="primary" class="page-command-bar__create" @click="createDialogVisible = true">
+            <el-icon><Plus /></el-icon>
+            新增线索
+          </el-button>
+        </div>
+
         <div class="page-command-bar__stats" role="group" aria-label="线索统计">
           <button
             v-for="card in statsCards"
@@ -579,6 +586,16 @@
             <span>审核历史</span>
             <span v-if="reviewHistory.length" class="panel-history-btn__badge">{{ reviewHistory.length }}</span>
           </button>
+          <button
+            type="button"
+            class="panel-delete-btn"
+            :disabled="deleteLoading"
+            aria-label="删除线索"
+            @click="handleDeleteClue"
+          >
+            <el-icon><Delete /></el-icon>
+            <span>删除</span>
+          </button>
           <button type="button" class="panel-close" aria-label="关闭详情" @click="drawerVisible = false">
             <el-icon><Close /></el-icon>
           </button>
@@ -735,6 +752,13 @@
             <div class="detail-dl__row">
               <dt>审核时间</dt>
               <dd>{{ formatDateTime(currentClue.audit_time || currentClue.auditTime) }}</dd>
+            </div>
+            <div
+              v-if="(currentClue.is_warehouse ?? currentClue.isWarehouse) === 1"
+              class="detail-dl__row"
+            >
+              <dt>入库时间</dt>
+              <dd>{{ formatDateTime(currentClue.warehouse_time || currentClue.warehouseTime) }}</dd>
             </div>
             <div class="detail-dl__row detail-dl__row--full">
               <dt>风险描述</dt>
@@ -903,6 +927,13 @@
                   <dt>审核时间</dt>
                   <dd>{{ formatDateTime(record.reviewTime || record.review_time) }}</dd>
                 </div>
+                <div
+                  v-if="getRecordWarehouse(record) === 1"
+                  class="timeline-meta__row"
+                >
+                  <dt>入库时间</dt>
+                  <dd>{{ formatDateTime(record.warehouseTime || record.warehouse_time || record.reviewTime || record.review_time) }}</dd>
+                </div>
               </dl>
               <div class="timeline-result">
                 <el-tag :type="getRecordWarehouse(record) === 1 ? 'success' : 'info'" size="small">
@@ -938,12 +969,18 @@
         />
       </div>
     </el-dialog>
+
+    <ManualClueCreateDialog
+      v-model:visible="createDialogVisible"
+      mode="clue"
+      @success="onManualCreateSuccess"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, type Component } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Close,
   Clock,
@@ -977,7 +1014,10 @@ import {
   ArrowUp,
   ArrowDown,
   List,
+  Plus,
+  Delete,
 } from '@element-plus/icons-vue'
+import ManualClueCreateDialog from '@/components/business/ManualClueCreateDialog.vue'
 import {
   searchRiskClue,
   getRiskClueById,
@@ -985,6 +1025,7 @@ import {
   getReviewHistory,
   getTagTree,
   getRiskClueStats,
+  deleteRiskClue,
   type RiskClue,
   type ReviewRecord,
   type TagCategory,
@@ -992,6 +1033,7 @@ import {
 
 const loading = ref(false)
 const reviewLoading = ref(false)
+const deleteLoading = ref(false)
 const drawerVisible = ref(false)
 const drawerWidth = ref(960)
 const DRAWER_MIN = 720
@@ -1095,6 +1137,12 @@ const currentClue = ref<RiskClue | null>(null)
 const reviewHistory = ref<ReviewRecord[]>([])
 const reviewHistoryDialogVisible = ref(false)
 const reviewHistoryLoading = ref(false)
+const createDialogVisible = ref(false)
+
+function onManualCreateSuccess() {
+  fetchStats()
+  fetchData()
+}
 
 const showReviewHistoryBtn = computed(() => {
   if (!currentClue.value) return false
@@ -1215,6 +1263,9 @@ function getCardRiskDescription(item: any): string {
 
 function getCardDisplayTime(item: any): string | undefined {
   if (isCardReviewed(item)) {
+    if (getCardWarehouse(item) === 1) {
+      return item._cardTime || item.warehouse_time || item.warehouseTime || item.audit_time || item.auditTime
+    }
     return item._cardTime || item.audit_time || item.auditTime
   }
   return item._cardTime || item.submission_time || item.submissionTime
@@ -1461,7 +1512,9 @@ function normalizeClueData(item: any): any {
     ? getHumanCategoryLabels(normalized)
     : getReportCategoryLabels(normalized)
   normalized._cardTime = reviewed
-    ? normalized.audit_time || normalized.auditTime
+    ? getCardWarehouse(normalized) === 1
+      ? normalized.warehouse_time || normalized.warehouseTime || normalized.audit_time || normalized.auditTime
+      : normalized.audit_time || normalized.auditTime
     : normalized.submission_time || normalized.submissionTime
   return normalized
 }
@@ -1809,6 +1862,41 @@ async function fetchData() {
     clueList.value = []
   } finally {
     loading.value = false
+  }
+}
+
+async function handleDeleteClue() {
+  if (!currentClue.value?.id) return
+  const name = getEventName(currentClue.value)
+  try {
+    await ElMessageBox.confirm(
+      `确认删除线索「${name}」？删除后不可恢复，可重新新增。`,
+      '删除确认',
+      {
+        type: 'warning',
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        confirmButtonClass: 'el-button--danger',
+      },
+    )
+  } catch {
+    return
+  }
+
+  deleteLoading.value = true
+  try {
+    await deleteRiskClue(currentClue.value.id)
+    ElMessage.success('删除成功')
+    drawerVisible.value = false
+    currentClue.value = null
+    reviewHistory.value = []
+    await fetchStats()
+    await fetchData()
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : '删除失败'
+    ElMessage.error(msg)
+  } finally {
+    deleteLoading.value = false
   }
 }
 

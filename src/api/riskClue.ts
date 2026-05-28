@@ -1,5 +1,28 @@
 import { get, post, del } from '@/api/index'
 
+/** 手动新增线索/事件 */
+export interface RiskClueManualCreatePayload {
+  eventName: string
+  riskDescription: string
+  content?: string
+  riskCategory?: string
+  auditRiskCategory?: string
+  sourceUrl?: string
+  sourceWebsite?: string
+  paperTitle?: string
+  researchTeam?: string
+  submissionChannel?: string
+  operatingEntity?: string
+  productsComponentsServices?: string
+  operatingEntityHuman?: string
+  riskDescriptionHuman?: string
+  submissionTime?: string
+  submitOrgName?: string
+  submitUserName?: string
+  isWarehouse?: number
+  reviewComment?: string
+}
+
 export interface RiskClue {
   id: string
   number?: number
@@ -61,7 +84,8 @@ export interface RiskClue {
   operatingEntityHuman?: string
   riskDescriptionHuman?: string
   is_warehouse?: number
-  isWarehouse?: number
+  warehouse_time?: string
+  warehouseTime?: string
   audit_user_name?: string
   auditUserName?: string
   audit_dept_name?: string
@@ -131,6 +155,8 @@ export interface ReviewRecord {
   review_dept?: string
   reviewTime?: string
   review_time?: string
+  warehouseTime?: string
+  warehouse_time?: string
 }
 
 // 统计数据
@@ -197,6 +223,11 @@ export function getRiskClueStats() {
 // 删除线索
 export function deleteRiskClue(id: string) {
   return del(`/business/risk-clue/${id}`)
+}
+
+// 手动新增风险线索（待审核）
+export function createRiskClue(data: RiskClueManualCreatePayload) {
+  return post<{ id: string }>('/business/risk-clue', data as unknown as Record<string, unknown>)
 }
 
 // 获取标签树
