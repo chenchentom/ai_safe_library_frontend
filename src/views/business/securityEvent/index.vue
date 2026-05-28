@@ -184,6 +184,10 @@
             <span class="sec-query__sep" aria-hidden="true" />
 
             <div class="sec-query__zone sec-query__zone--actions">
+              <button type="button" class="sec-query__btn sec-query__btn--accent" @click="createDialogVisible = true">
+                <el-icon><Plus /></el-icon>
+                新增事件
+              </button>
               <button type="button" class="sec-query__btn sec-query__btn--primary" @click="handleSearch">
                 <el-icon><Search /></el-icon>
                 查询
@@ -299,9 +303,9 @@
                     <span class="event-card__meta-val">{{ getCardProducts(item) }}</span>
                   </span>
                   <span class="event-card__meta-item">
-                    <el-icon class="event-card__meta-icon"><Clock /></el-icon>
-                    <span class="event-card__meta-key">审核时间</span>
-                    <span class="event-card__meta-val">{{ formatCardDateTime(getCardDisplayTime(item)) }}</span>
+                    <el-icon class="event-card__meta-icon"><Box /></el-icon>
+                    <span class="event-card__meta-key">入库时间</span>
+                    <span class="event-card__meta-val">{{ formatCardDateTime(getCardWarehouseTime(item)) }}</span>
                   </span>
                   <span v-if="getCardAuditor(item)" class="event-card__meta-item">
                     <el-icon class="event-card__meta-icon"><User /></el-icon>
@@ -369,9 +373,21 @@
             切换 · Esc 关闭
           </span>
         </div>
-        <button type="button" class="panel-close" aria-label="关闭详情" @click="drawerVisible = false">
-          <el-icon><Close /></el-icon>
-        </button>
+        <div class="panel-header__actions">
+          <button
+            type="button"
+            class="panel-delete-btn"
+            :disabled="deleteLoading"
+            aria-label="删除事件"
+            @click="handleDeleteEvent"
+          >
+            <el-icon><Delete /></el-icon>
+            <span>删除</span>
+          </button>
+          <button type="button" class="panel-close" aria-label="关闭详情" @click="drawerVisible = false">
+            <el-icon><Close /></el-icon>
+          </button>
+        </div>
       </div>
       <div class="panel-resize-handle" @mousedown="startResize"></div>
       <div class="panel-content">
@@ -521,6 +537,10 @@
                 <dt>审核时间</dt>
                 <dd>{{ formatDateTime(currentEvent.audit_time || currentEvent.auditTime) }}</dd>
               </div>
+              <div class="detail-dl__row">
+                <dt>入库时间</dt>
+                <dd>{{ formatDateTime(currentEvent.warehouse_time || currentEvent.warehouseTime) }}</dd>
+              </div>
               <div class="detail-dl__row detail-dl__row--full">
                 <dt>产品/组件/服务</dt>
                 <dd>{{ currentEvent.products_components_services || currentEvent.productsComponentsServices || '—' }}</dd>
@@ -543,11 +563,18 @@
         </div>
       </div>
     </div>
+
+    <ManualClueCreateDialog
+      v-model:visible="createDialogVisible"
+      mode="event"
+      @success="onManualCreateSuccess"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Close,
   Search,
@@ -563,7 +590,6 @@ import {
   CircleCheck,
   Filter,
   CollectionTag,
-  Clock,
   User,
   Goods,
   Share,
@@ -574,16 +600,21 @@ import {
   ArrowUp,
   ArrowDown,
   List,
+  Plus,
+  Delete,
 } from '@element-plus/icons-vue'
+import ManualClueCreateDialog from '@/components/business/ManualClueCreateDialog.vue'
 import { getTagTree, type TagCategory } from '@/api/riskClue'
 import {
   searchEvents,
   getEventById,
   getEventStats,
+  deleteSecurityEvent,
   type SecurityEvent,
 } from '@/api/securityEvent'
 
 const loading = ref(false)
+const deleteLoading = ref(false)
 const drawerVisible = ref(false)
 const drawerWidth = ref(960)
 const filterPopoverVisible = ref(false)
@@ -593,6 +624,12 @@ const eventList = ref<SecurityEvent[]>([])
 const currentEvent = ref<SecurityEvent | null>(null)
 const tagTree = ref<TagCategory[]>([])
 const statsTotal = ref(0)
+const createDialogVisible = ref(false)
+
+function onManualCreateSuccess() {
+  fetchStats()
+  fetchData()
+}
 
 const isResizing = ref(false)
 const startX = ref(0)
@@ -770,8 +807,12 @@ function getCardRiskDescription(item: SecurityEvent): string {
   return text || '暂无风险描述'
 }
 
+function getCardWarehouseTime(item: SecurityEvent): string | undefined {
+  return item.warehouse_time || item.warehouseTime || item._cardTime || item.audit_time || item.auditTime
+}
+
 function getCardDisplayTime(item: SecurityEvent): string | undefined {
-  return item._cardTime || item.audit_time || item.auditTime
+  return getCardWarehouseTime(item)
 }
 
 function getCardOperatingEntity(item: SecurityEvent): string {
@@ -841,7 +882,7 @@ function normalizeEvent(item: SecurityEvent): SecurityEvent {
     _cardCategories: getHumanCategoryLabels(item),
     _cardPrimaryCategory: category.label,
     _cardCategoryColorIndex: category.colorIndex,
-    _cardTime: item.audit_time || item.auditTime,
+    _cardTime: item.warehouse_time || item.warehouseTime || item.audit_time || item.auditTime,
   }
 }
 
@@ -999,6 +1040,40 @@ async function fetchStats() {
     statsTotal.value = data?.total ?? pagination.total
   } catch {
     statsTotal.value = pagination.total
+  }
+}
+
+async function handleDeleteEvent() {
+  if (!currentEvent.value?.id) return
+  const name = getEventName(currentEvent.value)
+  try {
+    await ElMessageBox.confirm(
+      `确认删除安全事件「${name}」？删除后不可恢复，可重新新增。`,
+      '删除确认',
+      {
+        type: 'warning',
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        confirmButtonClass: 'el-button--danger',
+      },
+    )
+  } catch {
+    return
+  }
+
+  deleteLoading.value = true
+  try {
+    await deleteSecurityEvent(currentEvent.value.id)
+    ElMessage.success('删除成功')
+    drawerVisible.value = false
+    currentEvent.value = null
+    await fetchStats()
+    await fetchData()
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : '删除失败'
+    ElMessage.error(msg)
+  } finally {
+    deleteLoading.value = false
   }
 }
 

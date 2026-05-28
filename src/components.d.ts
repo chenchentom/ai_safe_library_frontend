@@ -51,6 +51,7 @@ declare module 'vue' {
     ElTree: typeof import('element-plus/es')['ElTree']
     ElTreeSelect: typeof import('element-plus/es')['ElTreeSelect']
     ElUpload: typeof import('element-plus/es')['ElUpload']
+    ManualClueCreateDialog: typeof import('./components/business/ManualClueCreateDialog.vue')['default']
     Navbar: typeof import('./components/layout/Navbar.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

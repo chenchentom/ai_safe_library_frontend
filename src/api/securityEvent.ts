@@ -1,4 +1,5 @@
-import { get } from './index'
+import { get, post, del } from './index'
+import type { RiskClueManualCreatePayload } from './riskClue'
 
 /** 安全事件（已入库线索，字段与 biz_risk_clue 一致） */
 export interface SecurityEvent {
@@ -32,6 +33,8 @@ export interface SecurityEvent {
   auditDeptName?: string
   audit_time?: string
   auditTime?: string
+  warehouse_time?: string
+  warehouseTime?: string
   audit_reason?: string
   auditReason?: string
   content?: string
@@ -90,4 +93,14 @@ export function getEventById(id: string) {
 
 export function getEventStats() {
   return get<SecurityEventStats>('/business/security-event/stats')
+}
+
+// 删除安全事件（底层为同一条线索记录）
+export function deleteSecurityEvent(id: string) {
+  return del(`/business/risk-clue/${id}`)
+}
+
+// 手动新增安全事件（自动审核入库）
+export function createSecurityEvent(data: RiskClueManualCreatePayload) {
+  return post<{ id: string }>('/business/security-event', data as unknown as Record<string, unknown>)
 }
