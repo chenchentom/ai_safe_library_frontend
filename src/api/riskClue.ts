@@ -167,6 +167,18 @@ export interface RiskClueStats {
   warehoused: number
 }
 
+/** 批量审核结果 */
+export interface BatchReviewResult {
+  total: number
+  success: number
+  failed: number
+  failures?: Array<{
+    clueId: string
+    eventName: string
+    reason: string
+  }>
+}
+
 // 搜索参数
 export interface RiskClueSearchParams {
   keyword?: string
@@ -186,6 +198,10 @@ export interface RiskClueSearchParams {
   productsComponentsServices?: string
   submissionStartTime?: string
   submissionEndTime?: string
+  /** 报送人（模糊） */
+  submitUserName?: string
+  /** 报送部门（模糊） */
+  submitOrgName?: string
   /** @deprecated 兼容旧参数 */
   riskLevel?: string
   sourceType?: string
@@ -210,6 +226,19 @@ export function reviewClue(data: ReviewDTO) {
   return post('/business/risk-clue/review', data as unknown as Record<string, unknown>)
 }
 
+/** 批量审核参数（batchIsWarehouse 为入库决策，与筛选条件 isWarehouse 无关） */
+export type BatchReviewParams = Omit<RiskClueSearchParams, 'page' | 'size'> & {
+  batchIsWarehouse: 0 | 1
+}
+
+/** 按筛选条件批量审核未审核线索（审核字段与报送内容一致） */
+export function batchReviewClues(params: BatchReviewParams) {
+  return post<BatchReviewResult>(
+    '/business/risk-clue/batch-review',
+    params as unknown as Record<string, unknown>,
+  )
+}
+
 // 获取审核历史
 export function getReviewHistory(clueId: string) {
   return get<ReviewRecord[]>(`/business/risk-clue/${clueId}/review-history`)
@@ -228,6 +257,13 @@ export function deleteRiskClue(id: string) {
 // 手动新增风险线索（待审核）
 export function createRiskClue(data: RiskClueManualCreatePayload) {
   return post<{ id: string }>('/business/risk-clue', data as unknown as Record<string, unknown>)
+}
+
+/** 根据报送人昵称解析报送部门 */
+export function resolveSubmitOrg(submitUserName: string) {
+  return get<{ submitOrgName: string }>('/business/risk-clue/manual/submit-org', {
+    submitUserName,
+  })
 }
 
 // 获取标签树

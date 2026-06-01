@@ -15,6 +15,12 @@
     radial-gradient(ellipse 80% 50% at 100% -10%, rgba(30, 48, 80, 0.18), transparent 50%),
     var(--color-bg);
 
+  &--embedded {
+    height: calc(100vh - #{$header-height} - 32px - 52px);
+    padding: 0;
+    padding-left: 0;
+  }
+
   @media (min-width: 880px) {
     --grid-cols: 2;
   }
@@ -422,13 +428,71 @@
   }
 }
 
-.filter-panel :deep(.filter-control.el-cascader) {
+.filter-panel :deep(.filter-control.el-cascader),
+.filter-panel :deep(.filter-control--category.el-cascader) {
   width: 100%;
+}
+
+.filter-panel :deep(.filter-control--category.el-cascader .el-input__wrapper) {
+  min-height: 36px;
+  background: rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid rgba(79, 124, 255, 0.12) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  transition:
+    border-color $duration-base $ease-out,
+    background $duration-base $ease-out,
+    box-shadow $duration-base $ease-out;
+}
+
+.filter-panel :deep(.filter-control--category.el-cascader .el-input__wrapper:hover) {
+  border-color: rgba(99, 140, 255, 0.26) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
+}
+
+.filter-panel :deep(.filter-control--category.el-cascader .el-input.is-focus .el-input__wrapper) {
+  border-color: rgba(99, 140, 255, 0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 3px rgba(79, 124, 255, 0.1) !important;
+}
+
+.filter-panel :deep(.filter-control--category .el-input__inner),
+.filter-panel :deep(.filter-control--category .el-cascader__label) {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: $font-size-sm;
+}
+
+.filter-panel :deep(.filter-control--category .el-input__inner::placeholder) {
+  color: rgba(150, 170, 200, 0.45);
+}
+
+.filter-panel :deep(.filter-control--category .el-input__suffix),
+.filter-panel :deep(.filter-control--category .el-icon) {
+  color: rgba(120, 150, 200, 0.55);
+}
+
+.filter-panel :deep(.filter-control--category .el-tag) {
+  background: rgba(79, 124, 255, 0.12);
+  border-color: rgba(79, 124, 255, 0.24);
+  color: rgba(220, 235, 255, 0.92);
+}
+
+.filter-panel :deep(.filter-control--category .el-tag .el-tag__close) {
+  color: rgba(160, 180, 210, 0.75);
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.95);
+    background: rgba(79, 124, 255, 0.2);
+  }
+}
+
+.filter-panel :deep(.filter-control--category .el-cascader__tags) {
+  flex-wrap: nowrap;
 }
 
 .filter-panel :deep(.el-input__wrapper),
 .filter-panel :deep(.el-select__wrapper),
-.filter-panel :deep(.el-cascader .el-input__wrapper) {
+.filter-panel :deep(.el-cascader:not(.filter-control--category) .el-input__wrapper) {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid $color-border;
   box-shadow: none;
@@ -440,13 +504,13 @@
 }
 
 .filter-panel :deep(.el-input__wrapper:hover),
-.filter-panel :deep(.el-cascader .el-input__wrapper:hover) {
+.filter-panel :deep(.el-cascader:not(.filter-control--category) .el-input__wrapper:hover) {
   border-color: rgba(79, 124, 255, 0.28);
   background: rgba(255, 255, 255, 0.045);
 }
 
 .filter-panel :deep(.el-input__wrapper.is-focus),
-.filter-panel :deep(.el-cascader .el-input.is-focus .el-input__wrapper) {
+.filter-panel :deep(.el-cascader:not(.filter-control--category) .el-input.is-focus .el-input__wrapper) {
   border-color: rgba(79, 124, 255, 0.45);
   box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.1);
 }
@@ -462,29 +526,31 @@
   height: 36px;
   --el-date-editor-width: 100%;
   padding: 0 30px 0 11px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid $color-border;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(79, 124, 255, 0.12);
   border-radius: $border-radius-md;
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition:
     border-color $duration-base $ease-out,
     background $duration-base $ease-out,
     box-shadow $duration-base $ease-out;
 
   &:hover {
-    border-color: rgba(79, 124, 255, 0.28);
-    background: rgba(255, 255, 255, 0.045);
+    border-color: rgba(99, 140, 255, 0.26);
+    background: rgba(0, 0, 0, 0.28);
   }
 
   &.is-active {
-    border-color: rgba(79, 124, 255, 0.45);
-    box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.1);
+    border-color: rgba(99, 140, 255, 0.42);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 0 0 3px rgba(79, 124, 255, 0.1);
   }
 
   .el-range-input {
     width: 38%;
     background: transparent;
-    color: rgba(230, 237, 247, 0.92);
+    color: rgba(255, 255, 255, 0.9);
     font-size: $font-size-sm;
 
     &::placeholder {
@@ -547,7 +613,6 @@
 .page-command-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: $spacing-5;
   margin-bottom: $spacing-4;
   padding: $spacing-3 $spacing-4;
@@ -619,13 +684,106 @@
 }
 
 .page-command-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
+  margin-left: auto;
+}
+
+.page-command-bar__batch-review {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: $border-radius-md;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.04em;
+  color: rgba(255, 210, 140, 0.95) !important;
+  background: linear-gradient(
+      135deg,
+      rgba(245, 158, 11, 0.14),
+      rgba(239, 68, 68, 0.08)
+    ) !important;
+  border: 1px solid rgba(255, 185, 80, 0.32) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 20px rgba(245, 158, 11, 0.08) !important;
+  transition:
+    transform $duration-base $ease-out,
+    border-color $duration-base $ease-out,
+    box-shadow $duration-base $ease-out,
+    background $duration-base $ease-out;
+
+  .el-icon {
+    color: rgba(255, 200, 120, 0.95);
+    filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.35));
+  }
+
+  &:hover,
+  &:focus {
+    color: #fff3dc !important;
+    background: linear-gradient(
+        135deg,
+        rgba(245, 158, 11, 0.22),
+        rgba(239, 68, 68, 0.12)
+      ) !important;
+    border-color: rgba(255, 185, 80, 0.48) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 24px rgba(245, 158, 11, 0.18),
+      0 4px 16px rgba(0, 0, 0, 0.25) !important;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &.is-disabled,
+  &.is-loading {
+    opacity: 0.55;
+    transform: none;
+    box-shadow: none !important;
+  }
 }
 
 .page-command-bar__create {
-  height: 34px;
+  height: 36px;
+  padding: 0 18px;
   border-radius: $border-radius-md;
-  font-weight: $font-weight-medium;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.06em;
+  color: #f0f4ff !important;
+  background: linear-gradient(135deg, #5b84ff 0%, #3d67e6 55%, #2f52c4 100%) !important;
+  border: 1px solid rgba(147, 170, 255, 0.28) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 4px 20px rgba(79, 124, 255, 0.22) !important;
+  transition:
+    transform $duration-base $ease-out,
+    border-color $duration-base $ease-out,
+    box-shadow $duration-base $ease-out,
+    background $duration-base $ease-out;
+
+  .el-icon {
+    color: rgba(240, 244, 255, 0.95);
+    filter: drop-shadow(0 0 6px rgba(79, 124, 255, 0.35));
+  }
+
+  &:hover,
+  &:focus {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #6b92ff 0%, #4d77eb 55%, #3a5fd0 100%) !important;
+    border-color: rgba(147, 170, 255, 0.42) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      0 8px 28px rgba(79, 124, 255, 0.32),
+      0 0 24px rgba(79, 124, 255, 0.12) !important;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
 }
 
 .page-command-bar__stats {
@@ -740,9 +898,16 @@
     gap: $spacing-3;
   }
 
+  .page-command-bar__intro {
+    flex: 1 1 100%;
+  }
+
   .page-command-bar__stats {
-    width: 100%;
     flex-wrap: wrap;
+  }
+
+  .page-command-bar__actions {
+    margin-left: auto;
   }
 }
 
@@ -1560,6 +1725,38 @@
     font-family: $font-family-mono;
     line-height: 18px;
     text-align: center;
+  }
+}
+
+.panel-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(79, 124, 255, 0.28);
+  border-radius: $border-radius-md;
+  background: rgba(79, 124, 255, 0.1);
+  color: rgba(170, 200, 255, 0.95);
+  font-size: $font-size-sm;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background $duration-base $ease-out,
+    border-color $duration-base $ease-out,
+    color $duration-base $ease-out,
+    box-shadow $duration-base $ease-out;
+
+  &:hover:not(:disabled) {
+    background: rgba(79, 124, 255, 0.16);
+    border-color: rgba(79, 124, 255, 0.42);
+    color: rgba(220, 235, 255, 0.98);
+    box-shadow: 0 0 16px rgba(79, 124, 255, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 }
 

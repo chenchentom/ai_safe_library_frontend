@@ -1,76 +1,33 @@
 <template>
   <div class="sidebar" :class="{ collapsed: appStore.sidebarCollapsed }">
     <div class="sidebar-logo">
-      <span v-if="!appStore.sidebarCollapsed" class="logo-text">AI 安全平台</span>
-      <span v-else class="logo-icon">
-        <el-icon :size="22"><Monitor /></el-icon>
-      </span>
+      <img
+        class="logo-image"
+        src="@/assets/images/sidebar-logo.png"
+        alt="AI安全事件库"
+      />
+      <span v-if="!appStore.sidebarCollapsed" class="logo-text">AI安全事件库</span>
     </div>
 
     <el-scrollbar>
       <el-menu
+        v-if="authStore.menus.length"
         :default-active="activeMenu"
         :collapse="appStore.sidebarCollapsed"
         :collapse-transition="false"
         background-color="transparent"
         text-color="rgba(230, 237, 247, 0.74)"
         active-text-color="#ffffff"
+        popper-class="app-sidebar-menu-popper"
+        popper-effect="dark"
         router
       >
-        <el-menu-item index="/dashboard">
-          <el-icon><HomeFilled /></el-icon>
-          <template #title>首页</template>
-        </el-menu-item>
-
-        <el-menu-item index="/business/risk-clue">
-          <el-icon><Warning /></el-icon>
-          <template #title>风险线索库</template>
-        </el-menu-item>
-
-        <el-menu-item index="/business/security-event">
-          <el-icon><Document /></el-icon>
-          <template #title>安全事件库</template>
-        </el-menu-item>
-
-        <el-menu-item index="/business/risk-report">
-          <el-icon><Upload /></el-icon>
-          <template #title>风险报送</template>
-        </el-menu-item>
-
-        <el-sub-menu index="tag">
-          <template #title>
-            <el-icon><CollectionTag /></el-icon>
-            <span>分类标签</span>
-          </template>
-          <el-menu-item index="/system/tag/risk-clue">
-            <el-icon><Warning /></el-icon>
-            <span>风险线索标签</span>
-          </el-menu-item>
-          <el-menu-item index="/system/tag/malicious-skill">
-            <el-icon><CircleCloseFilled /></el-icon>
-            <span>恶意Skill标签</span>
-          </el-menu-item>
-          <el-menu-item index="/system/tag/supply-chain-v2">
-            <el-icon><Link /></el-icon>
-            <span>供应链标签1.0</span>
-          </el-menu-item>
-        </el-sub-menu>
-
-        <el-sub-menu index="system">
-          <template #title>
-            <el-icon><Setting /></el-icon>
-            <span>系统管理</span>
-          </template>
-          <el-menu-item index="/system/user">
-            <el-icon><User /></el-icon>
-            <span>用户管理</span>
-          </el-menu-item>
-          <el-menu-item index="/system/dept">
-            <el-icon><OfficeBuilding /></el-icon>
-            <span>部门管理</span>
-          </el-menu-item>
-        </el-sub-menu>
+        <SidebarMenuItem v-for="menu in authStore.menus" :key="menu.menuId" :menu="menu" />
       </el-menu>
+      <div v-else class="sidebar-empty">
+        <p>暂无菜单权限</p>
+        <p class="hint">请联系管理员分配角色</p>
+      </div>
     </el-scrollbar>
 
     <div class="sidebar-toggle" @click="appStore.toggleSidebar()">
@@ -85,19 +42,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { DArrowLeft, DArrowRight } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
+import SidebarMenuItem from './SidebarMenuItem.vue'
 
 const route = useRoute()
 const appStore = useAppStore()
+const authStore = useAuthStore()
 
-const activeMenu = computed(() => {
-  const { path } = route
-  if (path.startsWith('/system/')) return path
-  if (path.startsWith('/system')) return '/system/user'
-  if (path.startsWith('/business/')) return path
-  if (path.startsWith('/business')) return '/business/risk-clue'
-  return path
-})
+const activeMenu = computed(() => route.path)
 </script>
 
 <style lang="scss" scoped>
@@ -127,19 +81,52 @@ const activeMenu = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
+  padding: 0 14px;
   border-bottom: 1px solid rgba(90, 120, 255, 0.15);
   flex-shrink: 0;
+  overflow: hidden;
+
+  .logo-image {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 10px rgba(79, 124, 255, 0.2));
+  }
 
   .logo-text {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     color: #fff;
     white-space: nowrap;
-    letter-spacing: 1px;
+    letter-spacing: 0.06em;
+  }
+}
+
+.sidebar.collapsed .sidebar-logo {
+  padding: 0;
+
+  .logo-text {
+    display: none;
   }
 
-  .logo-icon {
-    color: $color-primary;
+  .logo-image {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.sidebar-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: rgba(230, 237, 247, 0.55);
+  font-size: 13px;
+
+  .hint {
+    margin-top: 8px;
+    font-size: 12px;
+    opacity: 0.7;
   }
 }
 
@@ -187,10 +174,6 @@ const activeMenu = computed(() => {
   .el-menu-item:hover,
   .el-sub-menu__title:hover {
     border-color: rgba(90, 120, 255, 0.18);
-  }
-
-  .el-menu-item.is-active {
-    margin: 4px 12px;
   }
 
   .el-menu-item .el-icon,

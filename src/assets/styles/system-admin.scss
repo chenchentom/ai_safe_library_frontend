@@ -1,0 +1,446 @@
+// ========================================
+// 系统管理（用户 / 部门 / 角色）深色主题
+// ========================================
+@use './variables.scss' as *;
+
+$sa-surface: rgba(11, 18, 32, 0.66);
+$sa-surface-dialog: linear-gradient(180deg, rgba(10, 16, 28, 0.96), rgba(11, 18, 32, 0.98));
+$sa-border: rgba(80, 120, 255, 0.12);
+$sa-border-subtle: rgba(255, 255, 255, 0.08);
+$sa-text: rgba(255, 255, 255, 0.86);
+$sa-text-muted: rgba(255, 255, 255, 0.55);
+$sa-text-dim: rgba(255, 255, 255, 0.42);
+$sa-input-bg: rgba(255, 255, 255, 0.03);
+$sa-hover: rgba(255, 255, 255, 0.04);
+
+// ---------- 挂载到 body 的弹层（下拉 / 日期 / 树选择） ----------
+.system-admin-popper.el-popper,
+.system-admin-popper.el-picker__popper {
+  background: linear-gradient(180deg, rgba(10, 16, 28, 0.98), rgba(11, 18, 32, 0.99)) !important;
+  border: 1px solid rgba(80, 120, 255, 0.18) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+
+  .el-popper__arrow::before {
+    background: rgba(11, 18, 32, 0.98) !important;
+    border-color: rgba(80, 120, 255, 0.18) !important;
+  }
+
+  .el-select-dropdown__item {
+    color: $sa-text;
+
+    &.is-hovering,
+    &:hover {
+      background: rgba(79, 124, 255, 0.12);
+    }
+
+    &.is-selected {
+      color: $color-primary-light;
+      font-weight: $font-weight-medium;
+    }
+  }
+
+  .el-tree {
+    background: transparent;
+    color: $sa-text;
+  }
+
+  .el-tree-node__content:hover {
+    background: rgba(80, 120, 255, 0.12);
+  }
+
+  .el-tree-node.is-current > .el-tree-node__content {
+    background: rgba(79, 124, 255, 0.2);
+    color: #fff;
+  }
+
+  .el-picker-panel {
+    background: transparent;
+    color: $color-text-primary;
+  }
+
+  .el-date-range-picker__header,
+  .el-date-table th {
+    color: rgba(180, 195, 220, 0.75);
+  }
+
+  .el-date-table td.available .el-date-table-cell__text {
+    color: rgba(220, 228, 245, 0.88);
+  }
+
+  .el-date-table td.in-range .el-date-table-cell {
+    background: rgba(79, 124, 255, 0.12);
+  }
+
+  .el-date-table td.start-date .el-date-table-cell__text,
+  .el-date-table td.end-date .el-date-table-cell__text {
+    background: rgba(79, 124, 255, 0.85);
+    color: #fff;
+  }
+
+  .el-picker-panel__icon-btn {
+    color: rgba(180, 195, 220, 0.75);
+
+    &:hover {
+      color: rgba(255, 255, 255, 0.95);
+    }
+  }
+}
+
+// ---------- 弹窗（teleport） ----------
+.system-admin-dialog.el-dialog {
+  background: $sa-surface-dialog;
+  border: 1px solid $sa-border;
+  border-radius: $border-radius-xl;
+  box-shadow: 0 0 0 1px rgba(80, 120, 255, 0.06), 0 10px 32px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px);
+
+  .el-dialog__header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    margin-right: 0;
+    padding-bottom: $spacing-3;
+  }
+
+  .el-dialog__title {
+    color: $sa-text;
+    font-weight: $font-weight-semibold;
+  }
+
+  .el-dialog__headerbtn .el-dialog__close {
+    color: rgba(255, 255, 255, 0.62);
+
+    &:hover {
+      color: #fff;
+    }
+  }
+
+  .el-dialog__body {
+    color: $sa-text-muted;
+  }
+
+  .el-dialog__footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: $spacing-3;
+  }
+}
+
+// ---------- 页面容器 ----------
+.system-admin.page-container {
+  padding-left: 0;
+}
+
+.system-admin {
+  .search-form {
+    .el-form-item__label {
+      color: $sa-text-muted;
+    }
+  }
+
+  .table-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-base);
+
+    .toolbar-left {
+      display: flex;
+      gap: var(--spacing-sm);
+    }
+  }
+
+  .table-pagination {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--spacing-base);
+  }
+
+  .pwd-hint {
+    font-size: $font-size-sm;
+    color: $sa-text-dim;
+    line-height: $line-height-relaxed;
+  }
+
+
+  // 表单控件
+  .el-input__wrapper,
+  .el-select__wrapper,
+  .el-textarea__inner,
+  .el-range-editor.el-input__wrapper,
+  .el-date-editor.el-input__wrapper,
+  .el-tree-select__wrapper,
+  .el-input-number .el-input__wrapper {
+    background: $sa-input-bg;
+    border: 1px solid $sa-border-subtle;
+    box-shadow: none;
+  }
+
+  .el-textarea__inner {
+    color: $sa-text;
+  }
+
+  .el-input__inner,
+  .el-range-input {
+    color: $sa-text;
+  }
+
+  .el-input__inner::placeholder,
+  .el-range-input::placeholder,
+  .el-select__placeholder,
+  .el-textarea__inner::placeholder {
+    color: $sa-text-dim;
+  }
+
+  .el-input-number__decrease,
+  .el-input-number__increase {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: $sa-border-subtle;
+    color: $sa-text-muted;
+
+    &:hover {
+      color: $color-primary-light;
+    }
+  }
+
+  // 按钮
+  .el-button--primary {
+    background: linear-gradient(90deg, #4f7cff 0%, #3d67e6 100%);
+    border-color: rgba(79, 124, 255, 0.28);
+    color: #fff;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+
+    &:hover {
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+    }
+  }
+
+  .el-button:not(.el-button--primary):not(.is-link):not(.is-text) {
+    background: transparent;
+    border: 1px solid $sa-border-subtle;
+    color: rgba(255, 255, 255, 0.78);
+
+    &:hover {
+      background: $sa-hover;
+      border-color: rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+    }
+  }
+
+  .el-button.is-link {
+    &.el-button--primary {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      color: $color-primary-light;
+    }
+
+    &.el-button--danger {
+      color: #ff7875;
+    }
+  }
+
+  .el-form-item__label {
+    color: $sa-text-muted;
+  }
+
+  .el-radio__label,
+  .el-checkbox__label {
+    color: $sa-text-muted;
+  }
+
+  .el-radio__inner,
+  .el-checkbox__inner {
+    background: $sa-input-bg;
+    border-color: $sa-border-subtle;
+  }
+
+  .el-radio.is-checked .el-radio__inner,
+  .el-checkbox.is-checked .el-checkbox__inner {
+    background: $color-primary;
+    border-color: $color-primary;
+  }
+
+  // 表格
+  .table-container .el-table {
+    --el-table-bg-color: transparent;
+    --el-table-tr-bg-color: transparent;
+    --el-table-header-bg-color: rgba(255, 255, 255, 0.03);
+    --el-table-row-hover-bg-color: $sa-hover;
+    --el-table-border-color: rgba(255, 255, 255, 0.06);
+    --el-table-text-color: rgba(255, 255, 255, 0.82);
+    --el-table-header-text-color: $sa-text-muted;
+    --el-table-striped-row-bg-color: rgba(255, 255, 255, 0.02);
+    --el-table-fixed-left-column: inset 10px 0 10px -10px rgba(0, 0, 0, 0.45);
+    --el-table-fixed-right-column: inset -10px 0 10px -10px rgba(0, 0, 0, 0.45);
+  }
+
+  .table-container .el-table__inner-wrapper,
+  .table-container .el-table__header-wrapper,
+  .table-container .el-table__body-wrapper,
+  .table-container .el-table__footer-wrapper {
+    background: transparent;
+  }
+
+  .table-container .el-table th.el-table__cell {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .table-container .el-table td.el-table__cell {
+    background: transparent;
+  }
+
+  .table-container .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .table-container .el-table__empty-block {
+    background: transparent;
+  }
+
+  .table-container .el-table__empty-text {
+    color: $sa-text-dim;
+  }
+
+  // 固定列补丁（避免白底）
+  .table-container .el-table__fixed,
+  .table-container .el-table__fixed-right {
+    &::before {
+      background: transparent;
+    }
+  }
+
+  .table-container .el-table-fixed-column--right,
+  .table-container .el-table-fixed-column--left {
+    background: rgba(11, 18, 32, 0.92) !important;
+  }
+
+  // 分页
+  .table-container .el-pagination {
+    --el-pagination-bg-color: transparent;
+    --el-pagination-text-color: $sa-text-muted;
+    --el-pagination-button-bg-color: rgba(255, 255, 255, 0.03);
+    --el-pagination-hover-color: #{$color-primary};
+  }
+
+  .table-container .el-pagination button,
+  .table-container .el-pager li {
+    background: rgba(255, 255, 255, 0.03);
+    color: $sa-text-muted;
+  }
+
+  .table-container .el-pager li.is-active {
+    background: rgba(79, 124, 255, 0.25);
+    color: #fff;
+  }
+
+  // 开关 / 标签
+  .table-container .el-switch__label {
+    color: $sa-text-muted;
+
+    &.is-active {
+      color: rgba(255, 255, 255, 0.82);
+    }
+  }
+
+  .table-container .el-tag {
+    border: none;
+    border-radius: $border-radius-sm;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.78);
+    font-weight: $font-weight-medium;
+  }
+
+  .table-container .el-tag--success {
+    background: rgba(82, 196, 26, 0.1);
+    color: #73d13d;
+  }
+
+  .table-container .el-tag--danger {
+    background: rgba(255, 77, 79, 0.1);
+    color: #ff7875;
+  }
+
+  // Loading 遮罩
+  .el-loading-mask {
+    background-color: rgba(5, 11, 20, 0.72);
+  }
+
+  .el-loading-spinner .el-loading-text {
+    color: $sa-text-muted;
+  }
+
+  .el-loading-spinner .path {
+    stroke: $color-primary;
+  }
+
+  // 弹窗内菜单树
+  .system-admin-menu-tree.el-tree {
+    max-height: 280px;
+    overflow: auto;
+    padding: $spacing-2;
+    border-radius: $border-radius-md;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid $sa-border-subtle;
+    color: $sa-text;
+
+    .el-tree-node__content:hover {
+      background: rgba(79, 124, 255, 0.1);
+    }
+  }
+}
+
+.system-admin .reset-pwd-user,
+.system-admin-dialog .reset-pwd-user {
+  margin: 0 0 $spacing-4;
+  font-size: $font-size-base;
+  color: $sa-text-muted;
+  line-height: $line-height-relaxed;
+
+  strong {
+    color: $sa-text;
+    font-weight: $font-weight-semibold;
+  }
+}
+
+// 弹窗内控件（dialog 在 body 下，需独立选择器）
+.system-admin-dialog {
+  .el-input__wrapper,
+  .el-select__wrapper,
+  .el-textarea__inner,
+  .el-tree-select__wrapper,
+  .el-input-number .el-input__wrapper {
+    background: $sa-input-bg;
+    border: 1px solid $sa-border-subtle;
+    box-shadow: none;
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    color: $sa-text;
+  }
+
+  .el-form-item__label {
+    color: $sa-text-muted;
+  }
+
+  .el-radio__label,
+  .el-checkbox__label {
+    color: $sa-text-muted;
+  }
+
+  .system-admin-menu-tree.el-tree {
+    max-height: 280px;
+    overflow: auto;
+    padding: $spacing-2;
+    border-radius: $border-radius-md;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid $sa-border-subtle;
+    color: $sa-text;
+
+    .el-tree-node__content:hover {
+      background: rgba(79, 124, 255, 0.1);
+    }
+  }
+}

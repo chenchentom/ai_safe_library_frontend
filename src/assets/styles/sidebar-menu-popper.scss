@@ -1,0 +1,92 @@
+// ========================================
+// 侧边栏收缩后的子菜单 popup — 暗夜科技风
+// Element Plus 收缩子菜单走 Tooltip + effect:light，需覆盖白底
+// ========================================
+@use './variables.scss' as *;
+
+.el-popper.app-sidebar-menu-popper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0;
+
+  &.is-light,
+  &.is-dark {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .el-popper__arrow {
+    display: none;
+  }
+}
+
+.app-sidebar-menu-popper.el-menu--popup-container {
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: rgba(230, 237, 247, 0.74);
+  --el-menu-hover-text-color: #ffffff;
+  --el-menu-active-color: #ffffff;
+  --el-menu-hover-bg-color: rgba(80, 120, 255, 0.08);
+
+  padding: 6px;
+  background: linear-gradient(180deg, rgba(10, 16, 28, 0.98), rgba(11, 18, 32, 0.99)) !important;
+  border: 1px solid rgba(80, 120, 255, 0.18) !important;
+  border-radius: $border-radius-lg !important;
+  box-shadow:
+    0 0 0 1px rgba(80, 120, 255, 0.06),
+    0 0 32px rgba(79, 124, 255, 0.1),
+    0 12px 40px rgba(0, 0, 0, 0.48) !important;
+
+  .el-menu.el-menu--popup {
+    min-width: 156px;
+    padding: 0;
+    background: transparent !important;
+    border: none;
+    box-shadow: none;
+  }
+
+  .el-menu-item {
+    height: 38px;
+    line-height: 38px;
+    margin: 2px 0;
+    padding: 0 14px !important;
+    border-radius: $border-radius-md;
+    border: 1px solid transparent;
+    font-size: $font-size-base;
+    font-weight: $font-weight-medium;
+    color: rgba(230, 237, 247, 0.74) !important;
+    background: transparent !important;
+    transition: background $duration-base $ease-out, border-color $duration-base $ease-out,
+      color $duration-base $ease-out;
+
+    .el-icon {
+      color: rgba(230, 237, 247, 0.62);
+      margin-right: 8px;
+    }
+
+    &:hover {
+      background: rgba(80, 120, 255, 0.08) !important;
+      border-color: rgba(90, 120, 255, 0.18);
+      color: rgba(230, 237, 247, 0.92) !important;
+
+      .el-icon {
+        color: rgba(230, 237, 247, 0.82);
+      }
+    }
+
+    &.is-active {
+      background: linear-gradient(
+          90deg,
+          rgba(79, 124, 255, 0.25),
+          rgba(122, 92, 255, 0.18)
+        ) !important;
+      border-color: rgba(90, 120, 255, 0.25);
+      box-shadow: 0 0 16px rgba(79, 124, 255, 0.16);
+      color: #ffffff !important;
+
+      .el-icon {
+        color: rgba(230, 237, 247, 0.9);
+      }
+    }
+  }
+}

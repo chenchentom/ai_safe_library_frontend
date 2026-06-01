@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <div class="page-container system-admin">
     <div class="table-container">
       <div class="table-toolbar">
         <div class="toolbar-left">
@@ -42,6 +42,7 @@
       v-model="dialogVisible"
       :title="dialogTitle"
       width="560px"
+      class="system-admin-dialog"
       :close-on-click-modal="false"
       destroy-on-close
     >
@@ -55,6 +56,7 @@
             placeholder="请选择上级部门（可选）"
             check-strictly
             clearable
+            popper-class="system-admin-popper"
             style="width: 100%"
           />
         </el-form-item>
@@ -72,6 +74,11 @@
         </el-form-item>
         <el-form-item label="邮箱">
           <el-input v-model="formData.email" placeholder="请输入邮箱" />
+        </el-form-item>
+        <el-form-item label="部门角色">
+          <el-select v-model="formData.roleIds" multiple collapse-tags popper-class="system-admin-popper" placeholder="该部门下用户默认继承的角色" style="width: 100%">
+            <el-option v-for="r in roleOptions" :key="r.roleId" :label="r.roleName" :value="r.roleId" />
+          </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="formData.status">
@@ -93,6 +100,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { getDeptList, addDept, updateDept, deleteDept } from '@/api/dept'
+import { getRoleList, type RoleData } from '@/api/role'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -100,6 +108,7 @@ const dialogVisible = ref(false)
 const formRef = ref<FormInstance>()
 const tableData = ref<any[]>([])
 const deptTree = ref<any[]>([])
+const roleOptions = ref<RoleData[]>([])
 
 const formData = reactive({
   deptId: 0,
@@ -110,6 +119,7 @@ const formData = reactive({
   phone: '',
   email: '',
   status: '0',
+  roleIds: [] as number[],
 })
 
 const formRules: FormRules = {
@@ -165,11 +175,12 @@ function handleAdd(parentId?: number) {
   formData.phone = ''
   formData.email = ''
   formData.status = '0'
+  formData.roleIds = []
   dialogVisible.value = true
 }
 
 function handleEdit(row: any) {
-  Object.assign(formData, row)
+  Object.assign(formData, row, { roleIds: row.roleIds || [] })
   dialogVisible.value = true
 }
 
@@ -210,104 +221,17 @@ async function handleDelete(row: any) {
   }
 }
 
+async function fetchRoles() {
+  try {
+    roleOptions.value = ((await getRoleList({ status: '0' })) as RoleData[]) || []
+  } catch {
+    roleOptions.value = []
+  }
+}
+
 onMounted(() => {
   fetchData()
+  fetchRoles()
 })
 </script>
 
-<style lang="scss" scoped>
-.page-container {
-  padding-left: 0;
-}
-
-.table-container {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  box-shadow: none;
-  backdrop-filter: blur(12px);
-
-  &:hover {
-    border-color: rgba(255, 255, 255, 0.10);
-  }
-}
-
-.table-container :deep(.el-table) {
-  --el-table-bg-color: transparent;
-  --el-table-tr-bg-color: transparent;
-  --el-table-header-bg-color: rgba(255, 255, 255, 0.03);
-  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.04);
-  --el-table-border-color: rgba(255, 255, 255, 0.06);
-  --el-table-text-color: rgba(255, 255, 255, 0.82);
-  --el-table-header-text-color: rgba(255, 255, 255, 0.55);
-  --el-table-striped-row-bg-color: rgba(255, 255, 255, 0.02);
-}
-
-.table-container :deep(.el-table__inner-wrapper),
-.table-container :deep(.el-table__header-wrapper),
-.table-container :deep(.el-table__body-wrapper) {
-  background: transparent;
-}
-
-.table-container :deep(.el-tag) {
-  border: none;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.78);
-  font-weight: 500;
-}
-
-.table-container :deep(.el-tag--success) {
-  background: rgba(82, 196, 26, 0.1);
-  color: #73d13d;
-}
-
-.table-container :deep(.el-tag--danger) {
-  background: rgba(255, 77, 79, 0.1);
-  color: #ff7875;
-}
-
-:deep(.el-dialog) {
-  background: linear-gradient(180deg, rgba(10, 16, 28, 0.96), rgba(11, 18, 32, 0.98));
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(16px);
-}
-
-:deep(.el-dialog__title) {
-  color: rgba(255, 255, 255, 0.86);
-}
-
-:deep(.el-dialog__headerbtn .el-dialog__close) {
-  color: rgba(255, 255, 255, 0.62);
-}
-
-:deep(.el-form-item__label) {
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.page-container :deep(.el-input__wrapper),
-.page-container :deep(.el-select__wrapper),
-.page-container :deep(.el-input-number .el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none;
-}
-
-.page-container :deep(.el-input__inner) {
-  color: rgba(255, 255, 255, 0.86);
-}
-
-.table-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-base);
-
-  .toolbar-left {
-    display: flex;
-    gap: var(--spacing-sm);
-  }
-}
-</style>

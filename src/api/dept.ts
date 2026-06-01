@@ -26,3 +26,11 @@ export function updateDept(data: DeptData) {
 export function deleteDept(id: number) {
   return del('/system/dept/' + id)
 }
+
+export function getDeptRoleIds(deptId: number) {
+  return get<number[]>(`/system/dept/${deptId}/roleIds`)
+}
+
+export function assignDeptRoles(deptId: number, roleIds: number[]) {
+  return put(`/system/dept/${deptId}/roles`, { roleIds } as unknown as Record<string, unknown>)
+}

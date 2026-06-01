@@ -1,4 +1,4 @@
-import { get, post, del } from './index'
+import { get, post, put, del } from './index'
 import type { RiskClueManualCreatePayload } from './riskClue'
 
 /** 安全事件（已入库线索，字段与 biz_risk_clue 一致） */
@@ -59,6 +59,10 @@ export interface SecurityEvent {
   operatingEntity?: string
   create_time?: string
   createTime?: string
+  is_shared?: number
+  isShared?: number
+  share_time?: string
+  shareTime?: string
   /** 列表卡片用 */
   _cardCategories?: string[]
   _cardPrimaryCategory?: string
@@ -98,6 +102,11 @@ export function getEventStats() {
 // 删除安全事件（底层为同一条线索记录）
 export function deleteSecurityEvent(id: string) {
   return del(`/business/risk-clue/${id}`)
+}
+
+/** 切换安全事件共享状态 */
+export function toggleSecurityEventShare(id: string) {
+  return put<{ isShared: number; shareTime: string | null }>(`/business/security-event/${id}/share`)
 }
 
 // 手动新增安全事件（自动审核入库）

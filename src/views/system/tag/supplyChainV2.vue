@@ -186,9 +186,10 @@ import {
   deleteSupplyChainTagV2,
   type SupplyChainTagV2Node,
   type SupplyChainTagV2Form,
+  type SupplyChainTagId,
 } from '@/api/supplyChainTagV2'
 
-const treeRef = ref<{ filter: (v: string) => void; store: { nodesMap: Record<number, { expand: () => void; collapse: () => void }> } } | null>(null)
+const treeRef = ref<{ filter: (v: string) => void; store: { nodesMap: Record<string, { expand: () => void; collapse: () => void }> } } | null>(null)
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -198,9 +199,9 @@ const treeData = ref<SupplyChainTagV2Node[]>([])
 const treeFilter = ref('')
 const selectedNode = ref<SupplyChainTagV2Node | null>(null)
 
-const form = reactive<SupplyChainTagV2Form & { id?: number }>({
+const form = reactive<SupplyChainTagV2Form>({
   id: undefined,
-  parentId: 0,
+  parentId: '0',
   module: 'supply_chain',
   tagName: '',
   tagCode: '',
@@ -251,8 +252,8 @@ function collapseAll() {
   })
 }
 
-function collectAllKeys(nodes: SupplyChainTagV2Node[]): number[] {
-  let keys: number[] = []
+function collectAllKeys(nodes: SupplyChainTagV2Node[]): SupplyChainTagId[] {
+  let keys: SupplyChainTagId[] = []
   for (const node of nodes) {
     keys.push(node.id)
     if (node.children?.length) {
@@ -277,7 +278,7 @@ async function fetchData() {
   }
 }
 
-function findNode(nodes: SupplyChainTagV2Node[], id: number): SupplyChainTagV2Node | null {
+function findNode(nodes: SupplyChainTagV2Node[], id: SupplyChainTagId): SupplyChainTagV2Node | null {
   for (const node of nodes) {
     if (node.id === id) return node
     if (node.children?.length) {
@@ -292,9 +293,9 @@ function handleNodeClick(data: SupplyChainTagV2Node) {
   selectedNode.value = data
 }
 
-function handleAdd(parentId?: number) {
+function handleAdd(parentId?: SupplyChainTagId) {
   form.id = undefined
-  form.parentId = parentId || 0
+  form.parentId = parentId || '0'
   form.module = 'supply_chain'
   form.tagName = ''
   form.tagCode = ''
@@ -307,7 +308,7 @@ function handleAdd(parentId?: number) {
 
 function handleEdit(node: SupplyChainTagV2Node) {
   form.id = node.id
-  form.parentId = node.parentId || 0
+  form.parentId = node.parentId || '0'
   form.module = node.module || 'supply_chain'
   form.tagName = node.label
   form.tagCode = node.tagCode
@@ -325,8 +326,8 @@ async function handleSubmit() {
     submitLoading.value = true
     try {
       const payload: SupplyChainTagV2Form = {
-        parentId: form.parentId || 0,
-        module: form.parentId ? undefined : form.module || 'supply_chain',
+        parentId: form.parentId || '0',
+        module: form.parentId && form.parentId !== '0' ? undefined : form.module || 'supply_chain',
         tagName: form.tagName,
         tagCode: form.tagCode,
         description: form.description,
@@ -369,8 +370,16 @@ async function handleDelete(node: SupplyChainTagV2Node) {
     ElMessage.success('删除成功')
     selectedNode.value = null
     await fetchData()
-  } catch {
-    // cancelled or failed
+  } catch (e: unknown) {
+    if (e === 'cancel' || e === 'close') return
+    const msg = e instanceof Error ? e.message : '删除失败'
+    if (msg.includes('标签不存在')) {
+      ElMessage.warning('该标签已删除，正在刷新列表')
+      selectedNode.value = null
+      await fetchData()
+      return
+    }
+    ElMessage.error(msg)
   }
 }
 

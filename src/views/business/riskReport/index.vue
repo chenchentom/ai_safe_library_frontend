@@ -1,50 +1,14 @@
 <template>
   <div class="risk-report-page">
     <el-tabs v-model="activeTab" class="dark-tabs">
-      <!-- Tab 1: My Reports -->
       <el-tab-pane label="我的报送" name="my-reports">
-        <div class="table-wrap">
-          <el-table
-            v-loading="loading"
-            :data="reportList"
-            style="width: 100%"
-            row-key="id"
-            @row-click="openDetail"
-          >
-            <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
-            <el-table-column prop="riskLevel" label="风险等级" width="100" align="center">
-              <template #default="{ row }">
-                <el-tag :type="riskTagType(row.riskLevel)" size="small" effect="dark">
-                  {{ riskLabel(row.riskLevel) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="reviewStatus" label="审核状态" width="100" align="center">
-              <template #default="{ row }">
-                <el-tag :type="reviewTagType(row.reviewStatus)" size="small">
-                  {{ reviewLabel(row.reviewStatus) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="createdTime" label="创建时间" width="170" />
-          </el-table>
-
-          <div class="pagination-wrap">
-            <el-pagination
-              v-model:current-page="pagination.page"
-              v-model:page-size="pagination.size"
-              :total="pagination.total"
-              :page-sizes="[10, 20, 50]"
-              layout="total, sizes, prev, pager, next, jumper"
-              background
-              @size-change="fetchReports"
-              @current-change="fetchReports"
-            />
-          </div>
-        </div>
+        <RiskClueLibrary v-if="activeTab === 'my-reports'" ref="cluePanelRef" dept-scope embedded />
       </el-tab-pane>
 
-      <!-- Tab 2: Batch Upload -->
+      <el-tab-pane label="共享线索" name="shared-clues">
+        <RiskClueLibrary v-if="activeTab === 'shared-clues'" shared-scope embedded />
+      </el-tab-pane>
+
       <el-tab-pane label="批量上传" name="upload">
         <div class="upload-section">
           <div class="upload-card">
@@ -62,21 +26,30 @@
               drag
               :auto-upload="false"
               :limit="1"
+              :disabled="uploading"
               :on-exceed="handleExceed"
               :on-change="handleFileChange"
               :on-remove="handleFileRemove"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx"
             >
               <el-icon class="upload-icon" :size="48"><Upload /></el-icon>
               <div class="upload-text">将文件拖到此处，或<em>点击上传</em></div>
-              <div class="upload-tip">仅支持 .xlsx / .xls / .csv 文件</div>
+              <div class="upload-tip">请使用下载模板填写，仅支持 .xlsx 文件</div>
             </el-upload>
+
+            <div v-if="uploading || uploadProgress > 0" class="upload-progress">
+              <div class="upload-progress__label">
+                <span>{{ progressLabel }}</span>
+                <span>{{ uploadProgress }}%</span>
+              </div>
+              <el-progress :percentage="uploadProgress" :stroke-width="10" :status="progressStatus" />
+            </div>
 
             <div class="upload-actions">
               <el-button
                 type="primary"
                 :loading="uploading"
-                :disabled="!selectedFile"
+                :disabled="!selectedFile || uploading"
                 @click="handleUpload"
               >
                 <el-icon><Upload /></el-icon>
@@ -84,155 +57,114 @@
               </el-button>
             </div>
 
-            <!-- Upload Result -->
+            <p v-if="uploadResult && !selectedFile && uploadResult.successCount > 0" class="upload-reset-hint">
+              本次上传已完成，请重新选择文件后再上传，避免重复导入。
+            </p>
+
             <div v-if="uploadResult" class="upload-result">
               <div class="result-header">
                 <el-icon :size="20" :color="uploadResult.failCount > 0 ? '#f59e0b' : '#10b981'">
                   <CircleCheckFilled v-if="uploadResult.failCount === 0" />
                   <WarningFilled v-else />
                 </el-icon>
-                <span>上传完成</span>
+                <span>{{ uploadResult.status === 'success' ? '全部导入成功' : '导入完成' }}</span>
               </div>
               <div class="result-stats">
+                <span>总计: {{ uploadResult.totalCount }}</span>
                 <span class="result-success">成功: {{ uploadResult.successCount }}</span>
                 <span class="result-fail">失败: {{ uploadResult.failCount }}</span>
               </div>
-              <div v-if="uploadResult.errors && uploadResult.errors.length > 0" class="result-errors">
-                <div class="error-title">错误详情:</div>
+              <div v-if="uploadResult.errors.length > 0" class="result-errors">
+                <div class="error-title">失败详情（前 20 条）:</div>
                 <div v-for="(err, idx) in uploadResult.errors" :key="idx" class="error-item">
                   {{ err }}
                 </div>
               </div>
+              <div v-if="uploadResult.failCount > 0" class="result-actions">
+                <el-button type="primary" link @click="activeTab = 'history'; historyPanelRef?.refresh?.()">
+                  前往上传历史查看全部失败原因
+                </el-button>
+              </div>
             </div>
 
-            <!-- Format Requirements -->
             <div class="format-info">
-              <h4>Excel 格式要求</h4>
+              <h4>Excel 格式要求（与模板一致）</h4>
               <ul>
-                <li>第一行为表头，字段顺序: 标题、内容、摘要、来源URL、风险等级、报送单位</li>
-                <li>风险等级可选值: high(高危)、medium(中危)、low(低危)、info(信息)</li>
-                <li>标题为必填项，其余字段可选</li>
-                <li>单次上传最多支持 1000 条记录</li>
+                <li>第一行为表头，共 17 列：序号、事件名、内容、一级分类、二级分类、产品/组件/服务、运营主体、风险描述、来源url、来源网站、论文名称、研究团队、是否验证、是否报送、报送渠道、报送时间、报送人/分中心</li>
+                <li>必填：事件名、一级分类、二级分类、风险描述；分类须在「风险线索标签」中存在且匹配</li>
+                <li>是否验证/是否报送填「是」或「否」；报送时间支持 Excel 日期或 yyyy-MM-dd 格式</li>
+                <li>单次上传最多 1000 条；文件将存档至部门/年月目录</li>
               </ul>
             </div>
           </div>
         </div>
       </el-tab-pane>
-    </el-tabs>
 
-    <!-- Detail Drawer -->
-    <el-drawer
-      v-model="drawerVisible"
-      title="报告详情"
-      :size="480"
-      direction="rtl"
-      :destroy-on-close="true"
-    >
-      <div v-if="currentReport" class="detail-content">
-        <h3 class="detail-title">{{ currentReport.title }}</h3>
-        <div class="detail-tags">
-          <el-tag :type="riskTagType(currentReport.riskLevel)" size="small" effect="dark">
-            {{ riskLabel(currentReport.riskLevel) }}
-          </el-tag>
-          <el-tag :type="reviewTagType(currentReport.reviewStatus)" size="small">
-            {{ reviewLabel(currentReport.reviewStatus) }}
-          </el-tag>
-        </div>
-        <el-divider />
-        <div class="detail-row">
-          <span class="detail-label">创建时间</span>
-          <span class="detail-value">{{ currentReport.createdTime }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">更新时间</span>
-          <span class="detail-value">{{ currentReport.updatedTime }}</span>
-        </div>
-      </div>
-    </el-drawer>
+      <el-tab-pane label="上传历史" name="history">
+        <UploadHistoryPanel v-if="activeTab === 'history'" ref="historyPanelRef" />
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadFile, UploadInstance } from 'element-plus'
+import { Download, Upload, CircleCheckFilled, WarningFilled } from '@element-plus/icons-vue'
+import RiskClueLibrary from '@/views/business/riskClue/index.vue'
+import UploadHistoryPanel from '@/views/business/riskReport/UploadHistoryPanel.vue'
 import {
-  getMyReports,
   uploadReport,
-  type RiskReport,
+  downloadReportTemplate,
+  waitUploadComplete,
+  getUploadBatchDetails,
   type UploadResult,
 } from '@/api/riskReport'
 
 const activeTab = ref('my-reports')
-const loading = ref(false)
 const uploading = ref(false)
-const drawerVisible = ref(false)
-const reportList = ref<RiskReport[]>([])
-const currentReport = ref<RiskReport | null>(null)
+const uploadProgress = ref(0)
 const selectedFile = ref<File | null>(null)
 const uploadResult = ref<UploadResult | null>(null)
 const uploadRef = ref<UploadInstance>()
+const cluePanelRef = ref<{ refresh?: () => void } | null>(null)
+const historyPanelRef = ref<{ refresh?: () => void } | null>(null)
+/** 本页已成功上传过的文件指纹，用于拦截误重复上传 */
+const lastUploadedFileKey = ref<string | null>(null)
 
-const pagination = reactive({
-  page: 1,
-  size: 10,
-  total: 0,
+const progressLabel = computed(() => {
+  if (uploadProgress.value < 40) return '正在上传文件…'
+  if (uploadProgress.value < 100) return '正在校验并入库…'
+  return '处理完成'
 })
 
-function riskTagType(level: string): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
-  const map: Record<string, 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
-    high: 'danger',
-    medium: 'warning',
-    low: 'success',
-    info: 'info',
-  }
-  return map[level] || 'info'
+const progressStatus = computed(() => {
+  if (uploading.value) return undefined
+  if (uploadResult.value?.failCount) return 'warning'
+  if (uploadResult.value) return 'success'
+  return undefined
+})
+
+function fileKey(file: File): string {
+  return `${file.name}|${file.size}|${file.lastModified}`
 }
 
-function riskLabel(level: string): string {
-  const map: Record<string, string> = { high: '高危', medium: '中危', low: '低危', info: '信息' }
-  return map[level] || level
-}
-
-function reviewTagType(status: number): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
-  if (status === 10) return 'warning'
-  if (status === 20) return 'success'
-  if (status === 40) return 'danger'
-  return 'info'
-}
-
-function reviewLabel(status: number): string {
-  if (status === 10) return '待审核'
-  if (status === 20) return '已审核'
-  if (status === 40) return '已驳回'
-  return '未知'
-}
-
-async function fetchReports() {
-  loading.value = true
-  try {
-    const res = await getMyReports({ page: pagination.page, size: pagination.size })
-    const data = res as any
-    reportList.value = data?.rows || data?.records || data?.list || data?.data || []
-    pagination.total = data?.total || 0
-  } catch {
-    reportList.value = []
-  } finally {
-    loading.value = false
-  }
-}
-
-function openDetail(row: RiskReport) {
-  currentReport.value = row
-  drawerVisible.value = true
+function clearSelectedFile() {
+  selectedFile.value = null
+  uploadRef.value?.clearFiles()
 }
 
 function handleFileChange(file: UploadFile) {
   selectedFile.value = file.raw || null
+  uploadResult.value = null
+  uploadProgress.value = 0
 }
 
 function handleFileRemove() {
-  selectedFile.value = null
+  clearSelectedFile()
+  uploadResult.value = null
+  uploadProgress.value = 0
 }
 
 function handleExceed() {
@@ -244,29 +176,85 @@ async function handleUpload() {
     ElMessage.warning('请先选择文件')
     return
   }
+
+  const currentFileKey = fileKey(selectedFile.value)
+  if (lastUploadedFileKey.value === currentFileKey) {
+    try {
+      await ElMessageBox.confirm(
+        '该文件在本页已成功上传过，再次上传可能产生重复数据。确定要继续吗？',
+        '重复上传确认',
+        {
+          type: 'warning',
+          confirmButtonText: '继续上传',
+          cancelButtonText: '取消',
+        },
+      )
+    } catch {
+      return
+    }
+  }
+
   uploading.value = true
   uploadResult.value = null
+  uploadProgress.value = 0
   try {
-    const res = await uploadReport(selectedFile.value)
-    uploadResult.value = (res as unknown as UploadResult) || { successCount: 0, failCount: 0, errors: [] }
-    ElMessage.success('上传完成')
-    // Refresh list
-    fetchReports()
-  } catch {
-    ElMessage.error('上传失败')
+    const start = await uploadReport(selectedFile.value, (p) => {
+      uploadProgress.value = p
+    })
+    const batchId = start.batchId
+    const finalProgress = await waitUploadComplete(batchId, (p) => {
+      uploadProgress.value = p
+    })
+
+    let errors: string[] = []
+    if (finalProgress.failCount > 0) {
+      const detailRes = await getUploadBatchDetails(batchId, { page: 1, size: 20, status: 'fail' })
+      errors = ((detailRes as { rows?: Array<{ errorMessage?: string }> })?.rows || [])
+        .map((d) => d.errorMessage || '')
+        .filter(Boolean)
+    }
+
+    uploadResult.value = {
+      batchId,
+      totalCount: finalProgress.totalCount,
+      successCount: finalProgress.successCount,
+      failCount: finalProgress.failCount,
+      status: finalProgress.status,
+      errors,
+    }
+
+    if (finalProgress.status === 'success') {
+      ElMessage.success(`导入成功，共 ${finalProgress.successCount} 条`)
+    } else if (finalProgress.status === 'partial_fail') {
+      ElMessage.warning(`部分成功：成功 ${finalProgress.successCount} 条，失败 ${finalProgress.failCount} 条`)
+    } else {
+      ElMessage.error(finalProgress.errorSummary || '导入失败')
+    }
+
+    if (finalProgress.successCount > 0) {
+      lastUploadedFileKey.value = currentFileKey
+      clearSelectedFile()
+    }
+
+    cluePanelRef.value?.refresh?.()
+    historyPanelRef.value?.refresh?.()
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : '上传失败'
+    ElMessage.error(msg)
+    uploadProgress.value = 0
   } finally {
     uploading.value = false
   }
 }
 
-function downloadTemplate() {
-  // Trigger template download
-  ElMessage.info('模板下载功能需要后端支持')
+async function downloadTemplate() {
+  try {
+    await downloadReportTemplate()
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : '模板下载失败'
+    ElMessage.error(msg)
+  }
 }
-
-onMounted(() => {
-  fetchReports()
-})
 </script>
 
 <style lang="scss" scoped>
@@ -298,38 +286,6 @@ onMounted(() => {
   }
 }
 
-.table-wrap {
-  background: rgba(30, 41, 59, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(59, 130, 246, 0.15);
-  border-radius: 12px;
-  padding: 16px;
-
-  :deep(.el-table) {
-    --el-table-bg-color: transparent;
-    --el-table-tr-bg-color: transparent;
-    --el-table-header-bg-color: rgba(15, 23, 42, 0.5);
-    --el-table-row-hover-bg-color: rgba(59, 130, 246, 0.08);
-    --el-table-border-color: rgba(59, 130, 246, 0.1);
-    --el-table-text-color: #e2e8f0;
-    --el-table-header-text-color: #94a3b8;
-  }
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-
-  :deep(.el-pagination) {
-    --el-pagination-bg-color: transparent;
-    --el-pagination-text-color: #94a3b8;
-    --el-pagination-button-bg-color: rgba(30, 41, 59, 0.8);
-    --el-pagination-hover-color: #3b82f6;
-  }
-}
-
-// Upload Section
 .upload-section {
   display: flex;
   justify-content: center;
@@ -337,7 +293,7 @@ onMounted(() => {
 
 .upload-card {
   width: 100%;
-  max-width: 680px;
+  max-width: 720px;
   background: rgba(30, 41, 59, 0.8);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(59, 130, 246, 0.15);
@@ -394,10 +350,30 @@ onMounted(() => {
   }
 }
 
+.upload-progress {
+  margin-top: 20px;
+
+  &__label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #94a3b8;
+  }
+}
+
 .upload-actions {
   display: flex;
   justify-content: center;
   margin-top: 20px;
+}
+
+.upload-reset-hint {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
 }
 
 .upload-result {
@@ -421,6 +397,8 @@ onMounted(() => {
     display: flex;
     gap: 24px;
     margin-bottom: 12px;
+    color: #94a3b8;
+    font-size: 14px;
   }
 
   .result-success {
@@ -435,6 +413,10 @@ onMounted(() => {
 
   .result-errors {
     margin-top: 8px;
+  }
+
+  .result-actions {
+    margin-top: 10px;
   }
 
   .error-title {
@@ -480,43 +462,5 @@ onMounted(() => {
     color: #64748b;
     line-height: 1.8;
   }
-}
-
-// Detail Drawer
-.detail-content {
-  padding: 0 4px;
-}
-
-.detail-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0 0 8px 0;
-  line-height: 1.4;
-}
-
-.detail-tags {
-  display: flex;
-  gap: 8px;
-}
-
-.detail-row {
-  display: flex;
-  margin-bottom: 12px;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.detail-label {
-  width: 72px;
-  flex-shrink: 0;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.detail-value {
-  flex: 1;
-  color: #1e293b;
-  word-break: break-all;
 }
 </style>

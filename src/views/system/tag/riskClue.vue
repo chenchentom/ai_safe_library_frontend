@@ -183,7 +183,7 @@
 import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
 import { Plus, Edit, Delete, Search, Upload, Download, Fold, Expand, UploadFilled } from '@element-plus/icons-vue'
-import { getTagTree, addTag, updateTag, deleteTag, type TagCategoryNode, type TagCategoryForm } from '@/api/tagCategory'
+import { getTagTree, addTag, updateTag, deleteTag, type TagCategoryNode, type TagCategoryForm, type TagId } from '@/api/tagCategory'
 
 // --- Refs ---
 const treeRef = ref<any>(null)
@@ -196,9 +196,9 @@ const treeData = ref<TagCategoryNode[]>([])
 const treeFilter = ref('')
 const selectedNode = ref<TagCategoryNode | null>(null)
 
-const form = reactive<TagCategoryForm & { id?: number }>({
+const form = reactive<TagCategoryForm>({
   id: undefined,
-  parentId: 0,
+  parentId: '0',
   module: 'risk_clue',
   tagName: '',
   tagCode: '',
@@ -252,8 +252,8 @@ function collapseAll() {
   })
 }
 
-function collectAllKeys(nodes: TagCategoryNode[]): number[] {
-  let keys: number[] = []
+function collectAllKeys(nodes: TagCategoryNode[]): TagId[] {
+  let keys: TagId[] = []
   for (const node of nodes) {
     keys.push(node.id)
     if (node.children) {
@@ -280,7 +280,7 @@ async function fetchData() {
   }
 }
 
-function findNode(nodes: TagCategoryNode[], id: number): TagCategoryNode | null {
+function findNode(nodes: TagCategoryNode[], id: TagId): TagCategoryNode | null {
   for (const node of nodes) {
     if (node.id === id) return node
     if (node.children) {
@@ -296,9 +296,9 @@ function handleNodeClick(data: TagCategoryNode) {
 }
 
 // --- CRUD ---
-function handleAdd(parentId?: number) {
+function handleAdd(parentId?: TagId) {
   form.id = undefined
-  form.parentId = parentId || 0
+  form.parentId = parentId || '0'
   form.tagName = ''
   form.tagCode = ''
   form.description = ''
@@ -310,7 +310,7 @@ function handleAdd(parentId?: number) {
 
 function handleEdit(node: TagCategoryNode) {
   form.id = node.id
-  form.parentId = node.parentId || 0
+  form.parentId = node.parentId || '0'
   form.tagName = node.label
   form.tagCode = node.tagCode
   form.description = node.description
@@ -362,8 +362,17 @@ async function handleDelete(node: TagCategoryNode) {
     ElMessage.success('删除成功')
     selectedNode.value = null
     await fetchData()
-  } catch {
-    // cancelled
+  } catch (e: unknown) {
+    if (e === 'cancel' || e === 'close') return
+    const msg = e instanceof Error ? e.message : '删除失败'
+    // 上次删除可能已成功但缓存未刷新，此时刷新列表即可
+    if (msg.includes('标签不存在')) {
+      ElMessage.warning('该标签已删除，正在刷新列表')
+      selectedNode.value = null
+      await fetchData()
+      return
+    }
+    ElMessage.error(msg)
   }
 }
 

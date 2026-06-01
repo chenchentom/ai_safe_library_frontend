@@ -1,0 +1,143 @@
+// ========================================
+// 分页 sizes 下拉 + 触发器 — 暗夜科技风（teleport 到 body）
+// ========================================
+@use './variables.scss' as *;
+
+$pg-text: rgba(255, 255, 255, 0.86);
+$pg-text-muted: rgba(255, 255, 255, 0.58);
+$pg-border: rgba(80, 120, 255, 0.18);
+
+.app-pagination-popper.el-popper,
+.app-pagination-popper.el-select__popper {
+  background: linear-gradient(180deg, rgba(10, 16, 28, 0.98), rgba(11, 18, 32, 0.99)) !important;
+  border: 1px solid $pg-border !important;
+  box-shadow:
+    0 0 0 1px rgba(80, 120, 255, 0.06),
+    0 0 32px rgba(79, 124, 255, 0.1),
+    0 12px 40px rgba(0, 0, 0, 0.48) !important;
+
+  .el-popper__arrow::before {
+    background: rgba(11, 18, 32, 0.98) !important;
+    border-color: $pg-border !important;
+  }
+
+  .el-select-dropdown__list {
+    padding: 4px;
+  }
+
+  .el-select-dropdown__item {
+    color: $pg-text;
+    border-radius: $border-radius-sm;
+    margin: 2px 0;
+
+    &.is-hovering,
+    &:hover {
+      background: rgba(79, 124, 255, 0.12);
+    }
+
+    &.is-selected {
+      color: $color-primary-light;
+      font-weight: $font-weight-medium;
+      background: rgba(79, 124, 255, 0.16);
+    }
+  }
+}
+
+// 分页器内 sizes 触发器、跳转输入框（全局）
+.el-pagination {
+  .el-pagination__sizes {
+    margin-right: 4px;
+  }
+
+  .el-pagination__sizes .el-select {
+    width: 108px;
+  }
+
+  .el-pagination__sizes .el-select__wrapper {
+    min-height: 32px;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(80, 120, 255, 0.14) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+    border-radius: $border-radius-md !important;
+    transition: border-color $duration-base $ease-out, box-shadow $duration-base $ease-out;
+  }
+
+  .el-pagination__sizes .el-select__wrapper:hover {
+    border-color: rgba(79, 124, 255, 0.32) !important;
+  }
+
+  .el-pagination__sizes .el-select__wrapper.is-focused {
+    border-color: rgba(79, 124, 255, 0.45) !important;
+    box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.1) !important;
+  }
+
+  .el-pagination__sizes .el-select__placeholder,
+  .el-pagination__sizes .el-select__selected-item {
+    color: rgba(230, 237, 247, 0.88);
+    font-size: $font-size-sm;
+  }
+
+  .el-pagination__sizes .el-select__caret {
+    color: rgba(180, 195, 220, 0.65);
+  }
+
+  .el-pagination__jump {
+    margin-left: 4px;
+    color: $pg-text-muted;
+    font-size: $font-size-sm;
+  }
+
+  .el-pagination__editor.el-input {
+    width: 48px;
+  }
+
+  .el-pagination__editor .el-input__wrapper {
+    min-height: 32px;
+    padding: 0 8px;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(80, 120, 255, 0.14) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+    border-radius: $border-radius-md !important;
+  }
+
+  .el-pagination__editor .el-input__wrapper.is-focus {
+    border-color: rgba(79, 124, 255, 0.45) !important;
+    box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.1) !important;
+  }
+
+  .el-pagination__editor .el-input__inner {
+    color: $pg-text;
+    font-family: $font-family-mono;
+    font-size: $font-size-sm;
+    text-align: center;
+  }
+
+  &.is-background {
+    --el-pagination-bg-color: transparent;
+    --el-pagination-text-color: $pg-text-muted;
+    --el-pagination-button-bg-color: rgba(255, 255, 255, 0.03);
+    --el-pagination-button-color: rgba(210, 222, 245, 0.85);
+    --el-pagination-button-disabled-color: rgba(120, 140, 170, 0.35);
+    --el-pagination-button-disabled-bg-color: rgba(255, 255, 255, 0.02);
+    --el-pagination-hover-color: #{$color-primary-light};
+
+    button,
+    .el-pager li {
+      background: rgba(255, 255, 255, 0.03);
+      color: $pg-text-muted;
+      border: 1px solid rgba(80, 120, 255, 0.1);
+    }
+
+    .el-pager li.is-active {
+      background: rgba(79, 124, 255, 0.25);
+      border-color: rgba(79, 124, 255, 0.35);
+      color: #fff;
+    }
+
+    button:hover:not(:disabled),
+    .el-pager li:hover:not(.is-active) {
+      color: $color-primary-light;
+      border-color: rgba(79, 124, 255, 0.28);
+    }
+  }
+}
