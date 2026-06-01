@@ -2,19 +2,22 @@
   <div class="login-page">
     <div class="visual-panel">
       <div class="brand-header">
-        <div class="brand-logo-icon"></div>
-        <span>国家互联网应急中心 (CNCERT)</span>
+        <img class="brand-logo-icon" src="@/assets/images/cncert-logo.png" alt="国家互联网应急中心" />
+        <div class="brand-org">
+          <span class="brand-org__name">国家互联网应急中心</span>
+          <span class="brand-org__code">CNCERT</span>
+        </div>
       </div>
 
       <div class="brand-core">
-        <h1 class="brand-title">AI 安全事件情报中心</h1>
+        <h1 class="brand-title">AI 安全事件库</h1>
         <p class="brand-subtitle">
-          国家级网络大模型风控与安全事件基座。面向高强度对抗、提示词注入风险、供应链潜在威胁，提供全网智能化安全态势监测、跨部门协同研判与全生命周期响应处置能力。
+          国家级网络大模型风控与安全事件基座。面向高强度对抗、注入风险、供应链潜在威胁，提供全网智能化安全态势监测、跨部门协同研判与全生命周期响应处置能力。
         </p>
       </div>
 
       <div class="brand-footer">
-        <span>技术安全一部 · 核心保密系统基座</span>
+        <span>新技术安全一部 · 核心保密系统基座</span>
       </div>
     </div>
 
@@ -102,8 +105,16 @@ async function handleLogin() {
   try {
     await authStore.login(loginForm.username.trim(), loginForm.password)
     ElMessage.success('登录成功')
-    const redirect = (route.query.redirect as string) || '/dashboard'
-    router.push(redirect)
+    const redirect = route.query.redirect as string | undefined
+    if (redirect && authStore.canAccessPath(redirect)) {
+      router.push(redirect)
+    } else if (authStore.canAccessPath('/dashboard')) {
+      router.push('/dashboard')
+    } else if (authStore.allowedPaths.length) {
+      router.push(authStore.allowedPaths[0])
+    } else {
+      router.push('/403')
+    }
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : '登录失败'
     ElMessage.error(msg)
@@ -114,6 +125,8 @@ async function handleLogin() {
 </script>
 
 <style lang="scss" scoped>
+@use '@/assets/styles/variables.scss' as *;
+
 .login-page {
   display: flex;
   width: 100%;
@@ -173,33 +186,41 @@ async function handleLogin() {
   z-index: 3;
   display: flex;
   align-items: center;
-  gap: 14px;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
-  color: #00d2ff;
+  gap: 16px;
 }
 
 .brand-logo-icon {
-  width: 26px;
-  height: 26px;
-  border: 2px solid #00d2ff;
-  border-radius: 50%;
-  display: inline-block;
-  position: relative;
-  background: rgba(0, 210, 255, 0.1);
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 12px rgba(79, 124, 255, 0.25));
 }
 
-.brand-logo-icon::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 8px;
-  height: 8px;
-  background-color: #00d2ff;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
+.brand-org {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 16px 10px 14px;
+  border-left: 2px solid rgba(79, 124, 255, 0.45);
+  background: linear-gradient(90deg, rgba(79, 124, 255, 0.06) 0%, transparent 100%);
+}
+
+.brand-org__name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: rgba(230, 237, 247, 0.92);
+  text-shadow: 0 0 20px rgba(79, 124, 255, 0.15);
+}
+
+.brand-org__code {
+  font-family: $font-family-mono;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(147, 170, 255, 0.72);
 }
 
 .brand-core {

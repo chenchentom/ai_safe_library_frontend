@@ -7,6 +7,8 @@ declare module 'vue-router' {
     requiresAuth?: boolean
     hidden?: boolean
     keepAlive?: boolean
+    /** 与 sys_menu.perms 对应，用于路由鉴权 */
+    permission?: string
   }
 }
 
@@ -41,7 +43,7 @@ const protectedRoutes: RouteRecordRaw = {
       path: 'dashboard',
       name: 'Dashboard',
       component: () => import('@/views/dashboard/index.vue'),
-      meta: { title: '首页', icon: 'HomeFilled', requiresAuth: true, keepAlive: true },
+      meta: { title: '首页', icon: 'HomeFilled', requiresAuth: true, keepAlive: true, permission: 'dashboard:view' },
     },
     {
       path: 'system',
@@ -53,13 +55,19 @@ const protectedRoutes: RouteRecordRaw = {
           path: 'user',
           name: 'SystemUser',
           component: () => import('@/views/system/user/index.vue'),
-          meta: { title: '用户管理', icon: 'User', requiresAuth: true, keepAlive: true },
+          meta: { title: '用户管理', icon: 'User', requiresAuth: true, keepAlive: true, permission: 'system:user:list' },
         },
         {
           path: 'dept',
           name: 'SystemDept',
           component: () => import('@/views/system/dept/index.vue'),
-          meta: { title: '部门管理', icon: 'OfficeBuilding', requiresAuth: true, keepAlive: true },
+          meta: { title: '部门管理', icon: 'OfficeBuilding', requiresAuth: true, keepAlive: true, permission: 'system:dept:list' },
+        },
+        {
+          path: 'role',
+          name: 'SystemRole',
+          component: () => import('@/views/system/role/index.vue'),
+          meta: { title: '角色管理', icon: 'UserFilled', requiresAuth: true, keepAlive: true, permission: 'system:role:list' },
         },
         {
           path: 'tag',
@@ -71,13 +79,13 @@ const protectedRoutes: RouteRecordRaw = {
               path: 'risk-clue',
               name: 'TagRiskClue',
               component: () => import('@/views/system/tag/riskClue.vue'),
-              meta: { title: '风险线索标签', requiresAuth: true, keepAlive: true },
+              meta: { title: '风险线索标签', requiresAuth: true, keepAlive: true, permission: 'system:tag:risk-clue' },
             },
             {
               path: 'malicious-skill',
               name: 'TagMaliciousSkill',
               component: () => import('@/views/system/tag/placeholder.vue'),
-              meta: { title: '恶意Skill标签', requiresAuth: true },
+              meta: { title: '恶意Skill标签', requiresAuth: true, permission: 'system:tag:malicious-skill' },
             },
             {
               path: 'supply-chain',
@@ -87,7 +95,7 @@ const protectedRoutes: RouteRecordRaw = {
               path: 'supply-chain-v2',
               name: 'TagSupplyChainV2',
               component: () => import('@/views/system/tag/supplyChainV2.vue'),
-              meta: { title: '供应链标签1.0', requiresAuth: true, keepAlive: true },
+              meta: { title: '供应链标签1.0', requiresAuth: true, keepAlive: true, permission: 'system:tag:supply-chain' },
             },
           ],
         },
@@ -103,25 +111,25 @@ const protectedRoutes: RouteRecordRaw = {
           path: 'risk-clue',
           name: 'BusinessRiskClue',
           component: () => import('@/views/business/riskClue/index.vue'),
-          meta: { title: '风险线索库', requiresAuth: true, keepAlive: true },
+          meta: { title: '风险线索库', requiresAuth: true, keepAlive: true, permission: 'business:risk-clue:list' },
         },
         {
           path: 'security-event',
           name: 'BusinessSecurityEvent',
           component: () => import('@/views/business/securityEvent/index.vue'),
-          meta: { title: '安全事件库', requiresAuth: true, keepAlive: true },
+          meta: { title: '安全事件库', requiresAuth: true, keepAlive: true, permission: 'business:security-event:list' },
         },
         {
           path: 'risk-report',
           name: 'BusinessRiskReport',
           component: () => import('@/views/business/riskReport/index.vue'),
-          meta: { title: '风险报送', requiresAuth: true, keepAlive: true },
+          meta: { title: '风险报送', requiresAuth: true, keepAlive: true, permission: 'business:risk-report:list' },
         },
         {
           path: 'supply-chain-tag',
           name: 'BusinessSupplyChainTag',
           component: () => import('@/views/business/supplyChainTag/index.vue'),
-          meta: { title: '供应链标签', requiresAuth: true, keepAlive: true },
+          meta: { title: '供应链标签', requiresAuth: true, keepAlive: true, permission: 'business:supply-chain:list' },
         },
       ],
     },
@@ -134,7 +142,7 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   document.title = `${to.meta.title || 'AI 安全平台'} - AI 安全事件管理平台`
 
   const token = localStorage.getItem('token')
@@ -142,9 +150,23 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth) {
     if (!token) {
       next({ path: '/login', query: { redirect: to.fullPath } })
-    } else {
-      next()
+      return
     }
+    const { useAuthStore } = await import('@/stores/auth')
+    const authStore = useAuthStore()
+    if (!authStore.userInfo) {
+      try {
+        await authStore.fetchUserInfo()
+      } catch {
+        next({ path: '/login', query: { redirect: to.fullPath } })
+        return
+      }
+    }
+    if (!authStore.canAccessPath(to.path)) {
+      next({ path: '/403' })
+      return
+    }
+    next()
   } else if (to.path === '/login' && token) {
     next('/dashboard')
   } else {

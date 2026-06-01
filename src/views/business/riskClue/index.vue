@@ -1,5 +1,8 @@
 <template>
-  <div class="risk-clue-page" :class="{ 'has-drawer': drawerVisible }">
+  <div
+    class="risk-clue-page"
+    :class="{ 'has-drawer': drawerVisible, 'risk-clue-page--embedded': embedded }"
+  >
     <div v-if="drawerVisible" class="page-backdrop" @click="drawerVisible = false" />
     <!-- LEFT: Filter Panel -->
     <aside class="filter-panel">
@@ -60,11 +63,14 @@
                 <el-cascader
                   v-model="filters.riskCategory"
                   :options="tagTree"
-                  :props="categoryCascaderProps"
+                  :props="categoryFilterCascaderProps"
                   placeholder="报送风险类别"
                   clearable
                   filterable
-                  class="filter-control"
+                  collapse-tags
+                  collapse-tags-tooltip
+                  class="filter-control filter-control--category"
+                  popper-class="app-tag-cascader-popper"
                 />
               </div>
               <div class="filter-field">
@@ -84,6 +90,49 @@
                   class="filter-control filter-control--date"
                   popper-class="app-date-range-popper"
                 />
+              </div>
+            </div>
+          </section>
+
+          <section class="filter-section">
+            <h3 class="filter-section__title">
+              <el-icon><User /></el-icon>
+              报送人信息
+            </h3>
+            <div class="filter-fields">
+              <div class="filter-field">
+                <label class="filter-label">
+                  <el-icon><User /></el-icon>
+                  报送人
+                </label>
+                <el-input
+                  v-model="filters.submitUserName"
+                  placeholder="模糊匹配报送人"
+                  clearable
+                  class="filter-control"
+                  @keyup.enter="handleSearch"
+                >
+                  <template #prefix>
+                    <el-icon><User /></el-icon>
+                  </template>
+                </el-input>
+              </div>
+              <div v-if="!deptScope" class="filter-field">
+                <label class="filter-label">
+                  <el-icon><OfficeBuilding /></el-icon>
+                  报送部门
+                </label>
+                <el-input
+                  v-model="filters.submitOrgName"
+                  placeholder="模糊匹配报送部门"
+                  clearable
+                  class="filter-control"
+                  @keyup.enter="handleSearch"
+                >
+                  <template #prefix>
+                    <el-icon><OfficeBuilding /></el-icon>
+                  </template>
+                </el-input>
               </div>
             </div>
           </section>
@@ -261,11 +310,14 @@
                 <el-cascader
                   v-model="filters.auditRiskCategory"
                   :options="tagTree"
-                  :props="categoryCascaderProps"
+                  :props="categoryFilterCascaderProps"
                   placeholder="审核后风险类别"
                   clearable
                   filterable
-                  class="filter-control"
+                  collapse-tags
+                  collapse-tags-tooltip
+                  class="filter-control filter-control--category"
+                  popper-class="app-tag-cascader-popper"
                 />
               </div>
               <div class="filter-field">
@@ -345,17 +397,10 @@
             <el-icon :size="20"><Warning /></el-icon>
           </span>
           <div class="page-command-bar__headline">
-            <h1 class="page-command-bar__title">风险线索库</h1>
+            <h1 class="page-command-bar__title">{{ pageTitle }}</h1>
             <span class="page-command-bar__sep" aria-hidden="true">·</span>
-            <p class="page-command-bar__desc">采集、检索与审核 AI 安全风险线索</p>
+            <p class="page-command-bar__desc">{{ pageDesc }}</p>
           </div>
-        </div>
-
-        <div class="page-command-bar__actions">
-          <el-button type="primary" class="page-command-bar__create" @click="createDialogVisible = true">
-            <el-icon><Plus /></el-icon>
-            新增线索
-          </el-button>
         </div>
 
         <div class="page-command-bar__stats" role="group" aria-label="线索统计">
@@ -386,6 +431,24 @@
               aria-hidden="true"
             />
           </button>
+        </div>
+
+        <div v-if="!sharedScope" class="page-command-bar__actions">
+          <el-button
+            v-if="!deptScope"
+            type="warning"
+            plain
+            class="page-command-bar__batch-review"
+            :loading="batchReviewDialogLoading"
+            @click="openBatchReviewDialog"
+          >
+            <el-icon><DocumentChecked /></el-icon>
+            批量审核
+          </el-button>
+          <el-button type="primary" class="page-command-bar__create" @click="createDialogVisible = true">
+            <el-icon><Plus /></el-icon>
+            新增线索
+          </el-button>
         </div>
       </header>
 
@@ -547,6 +610,7 @@
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.size"
           class="clue-pagination"
+          popper-class="app-pagination-popper"
           :total="pagination.total"
           :page-sizes="[12, 16, 24, 48]"
           layout="sizes, prev, pager, next, jumper"
@@ -576,6 +640,15 @@
         </div>
         <div class="panel-header__actions">
           <button
+            v-if="canEditCurrentClue(currentClue)"
+            type="button"
+            class="panel-edit-btn"
+            @click="openEditDialog"
+          >
+            <el-icon><EditPen /></el-icon>
+            <span>编辑</span>
+          </button>
+          <button
             v-if="showReviewHistoryBtn"
             type="button"
             class="panel-history-btn"
@@ -587,6 +660,7 @@
             <span v-if="reviewHistory.length" class="panel-history-btn__badge">{{ reviewHistory.length }}</span>
           </button>
           <button
+            v-if="canDeleteCurrentClue(currentClue)"
             type="button"
             class="panel-delete-btn"
             :disabled="deleteLoading"
@@ -621,7 +695,7 @@
             </el-tag>
           </div>
           <div class="detail-hero-meta">
-            <span v-if="currentClue.submit_org_name || currentClue.submitOrgName || currentClue.reportUnit">报送 · {{ currentClue.submit_org_name || currentClue.submitOrgName || currentClue.reportUnit }}</span>
+            <span>报送 · {{ pickDisplayText(currentClue, 'submit_org_name', 'submitOrgName', 'reportUnit') }}</span>
             <span>{{ formatDateOnly(currentClue.create_time || currentClue.createTime || currentClue.createdTime) }}</span>
           </div>
         </div>
@@ -631,15 +705,15 @@
             <span class="section-title__icon section-title__icon--risk"><el-icon><Warning /></el-icon></span>
             风险描述
           </h4>
-          <p class="detail-prose">{{ getRiskDescription(currentClue) || '—' }}</p>
+          <p class="detail-prose">{{ displayText(getRiskDescription(currentClue)) }}</p>
         </section>
 
-        <section v-if="currentClue.content" class="detail-block">
+        <section class="detail-block">
           <h4 class="section-title">
             <span class="section-title__icon"><el-icon><Reading /></el-icon></span>
             全文内容
           </h4>
-          <div class="detail-content-scroll">{{ currentClue.content }}</div>
+          <div class="detail-content-scroll">{{ pickDisplayText(currentClue, 'content') }}</div>
         </section>
 
         <section class="detail-block">
@@ -648,21 +722,23 @@
             来源信息
           </h4>
           <dl class="detail-dl">
-            <div v-if="currentClue.source_website || currentClue.sourceWebsite || currentClue.siteName" class="detail-dl__row">
+            <div class="detail-dl__row">
               <dt>来源网站</dt>
-              <dd>{{ currentClue.source_website || currentClue.sourceWebsite || currentClue.siteName }}</dd>
+              <dd>{{ pickDisplayText(currentClue, 'source_website', 'sourceWebsite', 'siteName') }}</dd>
             </div>
-            <div v-if="currentClue.source_url || currentClue.sourceUrl || currentClue.url" class="detail-dl__row">
+            <div class="detail-dl__row">
               <dt>来源 URL</dt>
               <dd>
                 <a
-                  :href="currentClue.source_url || currentClue.sourceUrl || currentClue.url"
+                  v-if="pickRawText(currentClue, 'source_url', 'sourceUrl', 'url')"
+                  :href="pickRawText(currentClue, 'source_url', 'sourceUrl', 'url')"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="detail-link"
                 >
-                  {{ currentClue.source_url || currentClue.sourceUrl || currentClue.url }}
+                  {{ pickRawText(currentClue, 'source_url', 'sourceUrl', 'url') }}
                 </a>
+                <template v-else>—</template>
               </dd>
             </div>
           </dl>
@@ -687,7 +763,7 @@
                 运营主体
               </span>
               <span class="detail-key-card__value">
-                {{ currentClue.operating_entity || currentClue.operatingEntity || '—' }}
+                {{ pickDisplayText(currentClue, 'operating_entity', 'operatingEntity') }}
               </span>
             </div>
           </div>
@@ -698,15 +774,15 @@
             </div>
             <div class="detail-dl__row">
               <dt>报送渠道</dt>
-              <dd>{{ currentClue.submission_channel || currentClue.submissionChannel || currentClue.sourceType || '—' }}</dd>
+              <dd>{{ getSubmissionChannelDisplay(currentClue) }}</dd>
             </div>
             <div class="detail-dl__row">
               <dt>报送人</dt>
-              <dd>{{ currentClue.submit_user_name || currentClue.submitUserName || '—' }}</dd>
+              <dd>{{ pickDisplayText(currentClue, 'submit_user_name', 'submitUserName') }}</dd>
             </div>
             <div class="detail-dl__row detail-dl__row--full">
               <dt>产品/组件/服务</dt>
-              <dd>{{ currentClue.products_components_services || currentClue.productsComponentsServices || '—' }}</dd>
+              <dd>{{ pickDisplayText(currentClue, 'products_components_services', 'productsComponentsServices') }}</dd>
             </div>
           </dl>
         </section>
@@ -736,37 +812,34 @@
                 运营主体
               </span>
               <span class="detail-key-card__value">
-                {{ currentClue.operating_entity_human || currentClue.operatingEntityHuman || '—' }}
+                {{ pickDisplayText(currentClue, 'operating_entity_human', 'operatingEntityHuman') }}
               </span>
             </div>
           </div>
           <dl class="detail-dl detail-dl--grid">
             <div class="detail-dl__row">
               <dt>审核人</dt>
-              <dd>{{ currentClue.audit_user_name || currentClue.auditUserName || '—' }}</dd>
+              <dd>{{ pickDisplayText(currentClue, 'audit_user_name', 'auditUserName') }}</dd>
             </div>
             <div class="detail-dl__row">
               <dt>审核部门</dt>
-              <dd>{{ currentClue.audit_dept_name || currentClue.auditDeptName || '—' }}</dd>
+              <dd>{{ pickDisplayText(currentClue, 'audit_dept_name', 'auditDeptName') }}</dd>
             </div>
             <div class="detail-dl__row">
               <dt>审核时间</dt>
               <dd>{{ formatDateTime(currentClue.audit_time || currentClue.auditTime) }}</dd>
             </div>
-            <div
-              v-if="(currentClue.is_warehouse ?? currentClue.isWarehouse) === 1"
-              class="detail-dl__row"
-            >
+            <div class="detail-dl__row">
               <dt>入库时间</dt>
               <dd>{{ formatDateTime(currentClue.warehouse_time || currentClue.warehouseTime) }}</dd>
             </div>
             <div class="detail-dl__row detail-dl__row--full">
               <dt>风险描述</dt>
-              <dd class="detail-dl__prose">{{ currentClue.risk_description_human || currentClue.riskDescriptionHuman || '—' }}</dd>
+              <dd class="detail-dl__prose">{{ pickDisplayText(currentClue, 'risk_description_human', 'riskDescriptionHuman') }}</dd>
             </div>
-            <div v-if="currentClue.audit_reason || currentClue.auditReason" class="detail-dl__row detail-dl__row--full">
+            <div class="detail-dl__row detail-dl__row--full">
               <dt>审核备注</dt>
-              <dd>{{ currentClue.audit_reason || currentClue.auditReason }}</dd>
+              <dd>{{ pickDisplayText(currentClue, 'audit_reason', 'auditReason') }}</dd>
             </div>
           </dl>
         </section>
@@ -927,12 +1000,9 @@
                   <dt>审核时间</dt>
                   <dd>{{ formatDateTime(record.reviewTime || record.review_time) }}</dd>
                 </div>
-                <div
-                  v-if="getRecordWarehouse(record) === 1"
-                  class="timeline-meta__row"
-                >
+                <div class="timeline-meta__row">
                   <dt>入库时间</dt>
-                  <dd>{{ formatDateTime(record.warehouseTime || record.warehouse_time || record.reviewTime || record.review_time) }}</dd>
+                  <dd>{{ formatDateTime(record.warehouseTime || record.warehouse_time) }}</dd>
                 </div>
               </dl>
               <div class="timeline-result">
@@ -941,21 +1011,21 @@
                 </el-tag>
               </div>
               <dl class="timeline-dl">
-                <div v-if="getRecordCategory(record) !== '—'" class="timeline-dl__row">
+                <div class="timeline-dl__row">
                   <dt>风险类别</dt>
                   <dd>{{ getRecordCategory(record) }}</dd>
                 </div>
-                <div v-if="record.operatingEntityHuman || record.operating_entity_human" class="timeline-dl__row">
+                <div class="timeline-dl__row">
                   <dt>运营主体</dt>
-                  <dd>{{ record.operatingEntityHuman || record.operating_entity_human }}</dd>
+                  <dd>{{ pickDisplayText(record, 'operatingEntityHuman', 'operating_entity_human') }}</dd>
                 </div>
-                <div v-if="record.riskDescriptionHuman || record.risk_description_human" class="timeline-dl__row">
+                <div class="timeline-dl__row">
                   <dt>风险描述</dt>
-                  <dd>{{ record.riskDescriptionHuman || record.risk_description_human }}</dd>
+                  <dd>{{ pickDisplayText(record, 'riskDescriptionHuman', 'risk_description_human') }}</dd>
                 </div>
-                <div v-if="record.reviewComment || record.review_comment" class="timeline-dl__row">
+                <div class="timeline-dl__row">
                   <dt>审核备注</dt>
-                  <dd>{{ record.reviewComment || record.review_comment }}</dd>
+                  <dd>{{ pickDisplayText(record, 'reviewComment', 'review_comment') }}</dd>
                 </div>
               </dl>
             </div>
@@ -970,10 +1040,173 @@
       </div>
     </el-dialog>
 
+    <el-dialog
+      v-model="batchReviewDialogVisible"
+      width="600px"
+      class="batch-review-dialog"
+      modal-class="batch-review-dialog-overlay"
+      append-to-body
+      destroy-on-close
+      align-center
+      :close-on-click-modal="!batchReviewSubmitting"
+      :close-on-press-escape="!batchReviewSubmitting"
+      :show-close="!batchReviewSubmitting"
+      @closed="resetBatchReviewDialog"
+    >
+      <template #header>
+        <div class="batch-review-dialog__header">
+          <div class="batch-review-dialog__header-main">
+            <span class="batch-review-dialog__header-icon" aria-hidden="true">
+              <el-icon :size="20"><DocumentChecked /></el-icon>
+            </span>
+            <div class="batch-review-dialog__header-text">
+              <h3 class="batch-review-dialog__title">批量审核</h3>
+              <p class="batch-review-dialog__subtitle">Batch Review · 高风险批量操作</p>
+            </div>
+          </div>
+          <span class="batch-review-dialog__status-chip">
+            <span class="batch-review-dialog__status-dot" aria-hidden="true" />
+            IRREVERSIBLE
+          </span>
+        </div>
+      </template>
+
+      <div v-loading="batchReviewDialogLoading" class="batch-review-dialog__body">
+        <div class="batch-review-dialog__risk-panel">
+          <div class="batch-review-dialog__risk-panel-icon" aria-hidden="true">
+            <el-icon :size="18"><Warning /></el-icon>
+          </div>
+          <div class="batch-review-dialog__risk-panel-content">
+            <p class="batch-review-dialog__risk-panel-title">操作不可撤销</p>
+            <p class="batch-review-dialog__risk-panel-desc">
+              将一次性处理当前筛选条件下的全部未审核线索。审核完成后无法批量回退，请仔细核对筛选范围与入库决策。
+            </p>
+          </div>
+        </div>
+
+        <div class="batch-review-dialog__metrics">
+          <div class="batch-review-dialog__metric-card">
+            <span class="batch-review-dialog__metric-label">待处理线索</span>
+            <strong class="batch-review-dialog__metric-value">
+              {{ batchReviewPendingCount.toLocaleString() }}
+            </strong>
+            <span class="batch-review-dialog__metric-unit">条记录</span>
+          </div>
+
+          <div class="batch-review-dialog__mapping">
+            <span class="batch-review-dialog__mapping-label">自动映射规则</span>
+            <ul class="batch-review-dialog__mapping-list">
+              <li>
+                <span class="batch-review-dialog__mapping-from">报送类别</span>
+                <span class="batch-review-dialog__mapping-arrow" aria-hidden="true">→</span>
+                <span class="batch-review-dialog__mapping-to">审核类别</span>
+              </li>
+              <li>
+                <span class="batch-review-dialog__mapping-from">风险描述</span>
+                <span class="batch-review-dialog__mapping-arrow" aria-hidden="true">→</span>
+                <span class="batch-review-dialog__mapping-to">审核描述</span>
+              </li>
+              <li>
+                <span class="batch-review-dialog__mapping-from">运营主体</span>
+                <span class="batch-review-dialog__mapping-arrow" aria-hidden="true">→</span>
+                <span class="batch-review-dialog__mapping-to">审核主体</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="batch-review-dialog__section">
+          <div class="batch-review-dialog__section-head">
+            <span class="batch-review-dialog__section-label">入库决策</span>
+            <span class="batch-review-dialog__section-tag">
+              {{ batchReviewForm.isWarehouse === 1 ? 'WAREHOUSE ON' : 'WAREHOUSE OFF' }}
+            </span>
+          </div>
+          <div
+            class="batch-review-dialog__warehouse warehouse-toggle"
+            role="group"
+            aria-label="批量审核入库决策"
+          >
+            <button
+              type="button"
+              class="warehouse-toggle__option warehouse-toggle__option--yes"
+              :class="{ 'is-active': batchReviewForm.isWarehouse === 1 }"
+              :disabled="batchReviewSubmitting"
+              @click="batchReviewForm.isWarehouse = 1"
+            >
+              <span class="warehouse-toggle__icon warehouse-toggle__icon--yes">
+                <el-icon><Box /></el-icon>
+              </span>
+              <span class="warehouse-toggle__text">
+                <strong>入库</strong>
+                <small>纳入风险线索库</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="warehouse-toggle__option warehouse-toggle__option--no"
+              :class="{ 'is-active': batchReviewForm.isWarehouse === 0 }"
+              :disabled="batchReviewSubmitting"
+              @click="batchReviewForm.isWarehouse = 0"
+            >
+              <span class="warehouse-toggle__icon warehouse-toggle__icon--no">
+                <el-icon><Remove /></el-icon>
+              </span>
+              <span class="warehouse-toggle__text">
+                <strong>不入库</strong>
+                <small>仅记录审核结论</small>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <label
+          class="batch-review-dialog__confirm"
+          :class="{ 'is-checked': batchReviewForm.confirmed }"
+        >
+          <el-checkbox v-model="batchReviewForm.confirmed" :disabled="batchReviewSubmitting">
+            我已了解上述说明，确认执行批量审核（不可撤销）
+          </el-checkbox>
+        </label>
+      </div>
+
+      <template #footer>
+        <div class="batch-review-dialog__footer">
+          <el-button
+            class="batch-review-dialog__cancel-btn"
+            :disabled="batchReviewSubmitting"
+            @click="batchReviewDialogVisible = false"
+          >
+            取消
+          </el-button>
+          <el-button
+            type="danger"
+            class="batch-review-dialog__submit-btn"
+            :loading="batchReviewSubmitting"
+            :disabled="!canSubmitBatchReview"
+            @click="submitBatchReview"
+          >
+            <el-icon v-if="!batchReviewSubmitting"><DocumentChecked /></el-icon>
+            确认批量审核
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <ManualClueCreateDialog
+      v-if="!sharedScope"
       v-model:visible="createDialogVisible"
       mode="clue"
       @success="onManualCreateSuccess"
+    />
+
+    <ManualClueCreateDialog
+      v-if="deptScope"
+      v-model:visible="editDialogVisible"
+      mode="clue"
+      :edit-clue-id="editClueId"
+      :edit-clue="editClueSnapshot"
+      @success="onEditSuccess"
     />
   </div>
 </template>
@@ -1018,10 +1251,12 @@ import {
   Delete,
 } from '@element-plus/icons-vue'
 import ManualClueCreateDialog from '@/components/business/ManualClueCreateDialog.vue'
+import { searchMyReports, getMyReportStats, searchSharedClues, getSharedClueStats } from '@/api/riskReport'
 import {
   searchRiskClue,
   getRiskClueById,
   reviewClue,
+  batchReviewClues,
   getReviewHistory,
   getTagTree,
   getRiskClueStats,
@@ -1029,12 +1264,65 @@ import {
   type RiskClue,
   type ReviewRecord,
   type TagCategory,
+  type BatchReviewResult,
+  type BatchReviewParams,
 } from '@/api/riskClue'
+
+const props = withDefaults(
+  defineProps<{
+    /** 仅展示当前账号所属部门的报送数据 */
+    deptScope?: boolean
+    /** 仅展示已共享的线索（跨部门只读浏览） */
+    sharedScope?: boolean
+    /** 嵌入风险报送 Tab 时使用，调整布局高度 */
+    embedded?: boolean
+  }>(),
+  {
+    deptScope: false,
+    sharedScope: false,
+    embedded: false,
+  },
+)
+
+const pageTitle = computed(() => {
+  if (props.sharedScope) return '共享线索'
+  if (props.deptScope) return '我的报送'
+  return '风险线索库'
+})
+const pageDesc = computed(() => {
+  if (props.sharedScope) return '浏览各部门共享的已入库安全事件线索'
+  if (props.deptScope) return '检索与管理本部门报送的 AI 安全风险线索'
+  return '采集、检索与审核 AI 安全风险线索'
+})
+
+function resolveStatsFetcher() {
+  if (props.deptScope) return getMyReportStats
+  if (props.sharedScope) return getSharedClueStats
+  return getRiskClueStats
+}
+
+function resolveSearchFetcher() {
+  if (props.deptScope) return searchMyReports
+  if (props.sharedScope) return searchSharedClues
+  return searchRiskClue
+}
 
 const loading = ref(false)
 const reviewLoading = ref(false)
+const batchReviewDialogVisible = ref(false)
+const batchReviewDialogLoading = ref(false)
+const batchReviewSubmitting = ref(false)
+const batchReviewPendingCount = ref(0)
+const batchReviewForm = reactive({
+  isWarehouse: 0 as 0 | 1,
+  confirmed: false,
+})
 const deleteLoading = ref(false)
 const drawerVisible = ref(false)
+const createDialogVisible = ref(false)
+const editDialogVisible = ref(false)
+const editClueId = ref('')
+const editClueSnapshot = ref<RiskClue | null>(null)
 const drawerWidth = ref(960)
 const DRAWER_MIN = 720
 const DRAWER_MAX = 1400
@@ -1137,7 +1425,6 @@ const currentClue = ref<RiskClue | null>(null)
 const reviewHistory = ref<ReviewRecord[]>([])
 const reviewHistoryDialogVisible = ref(false)
 const reviewHistoryLoading = ref(false)
-const createDialogVisible = ref(false)
 
 function onManualCreateSuccess() {
   fetchStats()
@@ -1166,12 +1453,18 @@ const categoryCascaderProps = {
   emitPath: true,
 }
 
+/** 筛选项：风险类别多选 */
+const categoryFilterCascaderProps = {
+  ...categoryCascaderProps,
+  multiple: true,
+}
+
 const filters = reactive({
   keyword: '',
-  riskCategory: [] as string[],
+  riskCategory: [] as string[][],
   reviewStatus: undefined as number | undefined,
   isWarehouse: undefined as number | undefined,
-  auditRiskCategory: [] as string[],
+  auditRiskCategory: [] as string[][],
   operatingEntityHuman: '',
   auditUserName: '',
   auditDateRange: [] as string[],
@@ -1180,6 +1473,8 @@ const filters = reactive({
   submissionChannel: '',
   productsComponentsServices: '',
   submissionDateRange: [] as string[],
+  submitUserName: '',
+  submitOrgName: '',
 })
 
 const pagination = reactive({
@@ -1230,8 +1525,34 @@ function resetReviewForm(item?: any) {
   reviewForm.reviewComment = clue?.audit_reason || clue?.auditReason || ''
 }
 
+function displayText(value: unknown): string {
+  if (value === null || value === undefined) return '—'
+  const text = String(value).trim()
+  return text || '—'
+}
+
+function pickRawText(item: any, ...keys: string[]): string {
+  if (!item) return ''
+  for (const key of keys) {
+    const value = item[key]
+    if (value !== null && value !== undefined && String(value).trim()) {
+      return String(value).trim()
+    }
+  }
+  return ''
+}
+
+function pickDisplayText(item: any, ...keys: string[]): string {
+  return displayText(pickRawText(item, ...keys))
+}
+
+function getSubmissionChannelDisplay(item: any): string {
+  const raw = pickRawText(item, 'submission_channel', 'submissionChannel', 'sourceType')
+  return raw ? sourceLabel(raw) : '—'
+}
+
 function getEventName(item: any): string {
-  return item.event_name || item.eventName || item.title || "暂无事件名"
+  return pickDisplayText(item, 'event_name', 'eventName', 'title')
 }
 
 function getRiskDescription(item: any): string {
@@ -1243,22 +1564,57 @@ function isCardReviewed(item: any): boolean {
   return getAuditStatus(item) === 20
 }
 
-/** 未审核、已审核均可提交/重复审核 */
+/** 未审核、已审核均可提交/重复审核（我的报送 / 共享线索只读，不可审核） */
 function canReviewClue(item: any): boolean {
+  if (props.deptScope || props.sharedScope) return false
   const status = getAuditStatus(item)
   return status === 10 || status === 20
+}
+
+/** 我的报送：未审核状态可编辑基础信息 */
+function canEditCurrentClue(item: any): boolean {
+  if (!props.deptScope || !item) return false
+  return getAuditStatus(item) === 10
+}
+
+/** 未审核状态可删除；已审核、共享浏览不可删除 */
+function canDeleteCurrentClue(item: any): boolean {
+  if (!item || props.sharedScope) return false
+  return getAuditStatus(item) === 10
+}
+
+function openEditDialog() {
+  if (!currentClue.value || !canEditCurrentClue(currentClue.value)) return
+  editClueId.value = currentClue.value.id
+  editClueSnapshot.value = { ...currentClue.value }
+  editDialogVisible.value = true
+}
+
+async function onEditSuccess(id: string) {
+  editDialogVisible.value = false
+  editClueId.value = ''
+  editClueSnapshot.value = null
+  await fetchStats()
+  await fetchData()
+  if (currentClue.value?.id === id) {
+    try {
+      const res = await getRiskClueById(id)
+      currentClue.value = normalizeClueData(res as unknown as RiskClue)
+    } catch {
+      const updated = clueList.value.find((item) => item.id === id)
+      if (updated) currentClue.value = normalizeClueData(updated)
+    }
+  }
 }
 
 /** 卡片风险描述：未审核用报送描述，已审核用审核描述 */
 function getCardRiskDescription(item: any): string {
   if (isCardReviewed(item)) {
     const raw = item.risk_description_human || item.riskDescriptionHuman
-    const text = formatSummary(raw)
-    return text || '暂无审核风险描述'
+    return displayText(formatSummary(raw))
   }
   const raw = item.risk_description || item.riskDescription || item.summary
-  const text = formatSummary(raw)
-  return text || '暂无风险描述'
+  return displayText(formatSummary(raw))
 }
 
 function getCardDisplayTime(item: any): string | undefined {
@@ -1579,15 +1935,28 @@ function riskLevelLabel(level: string): string {
   return map[level] || level
 }
 
-function formatRiskCategoryPath(path?: string[] | string): string {
+function formatRiskCategoryPath(path?: string[] | string[][] | string): string {
   if (!path) return ''
-  if (Array.isArray(path)) return path.filter(Boolean).join(' / ')
-  return String(path).trim()
+  if (typeof path === 'string') return path.trim()
+  if (!Array.isArray(path) || !path.length) return ''
+  if (Array.isArray(path[0])) {
+    return (path as string[][])
+      .map((item) => item.filter(Boolean).join(' / '))
+      .filter(Boolean)
+      .join('、')
+  }
+  return (path as string[]).filter(Boolean).join(' / ')
 }
 
-function buildRiskCategoryParam(path?: string[]): string | undefined {
+function buildRiskCategoryParam(path?: string[] | string[][]): string | undefined {
   if (!path?.length) return undefined
-  const value = path.filter(Boolean).join('/')
+  if (Array.isArray(path[0])) {
+    const values = (path as string[][])
+      .map((item) => item.filter(Boolean).join('/'))
+      .filter(Boolean)
+    return values.length ? values.join(',') : undefined
+  }
+  const value = (path as string[]).filter(Boolean).join('/')
   return value || undefined
 }
 
@@ -1631,6 +2000,8 @@ const activeFilterChips = computed(() => {
       label: `报送时间: ${filters.submissionDateRange[0]} ~ ${filters.submissionDateRange[1]}`,
     })
   }
+  if (filters.submitUserName) chips.push({ key: 'submitUserName', label: `报送人: ${filters.submitUserName}` })
+  if (filters.submitOrgName) chips.push({ key: 'submitOrgName', label: `报送部门: ${filters.submitOrgName}` })
   return chips
 })
 
@@ -1642,6 +2013,8 @@ const submissionFilterCount = computed(() => {
   if (filters.submissionChannel) n++
   if (filters.productsComponentsServices) n++
   if (filters.submissionDateRange?.length === 2) n++
+  if (filters.submitUserName) n++
+  if (filters.submitOrgName) n++
   return n
 })
 
@@ -1671,7 +2044,9 @@ const hasExtraFilters = computed(() => {
     filters.operatingEntity ||
     filters.submissionChannel ||
     filters.productsComponentsServices ||
-    filters.submissionDateRange.length === 2
+    filters.submissionDateRange.length === 2 ||
+    filters.submitUserName ||
+    filters.submitOrgName
   )
 })
 
@@ -1697,8 +2072,8 @@ function filterByStat(type: StatCardKey) {
 
 async function fetchStats() {
   try {
-    const res = await getRiskClueStats()
-    const data = (res ?? {}) as Record<string, unknown>
+    const res = await resolveStatsFetcher()()
+    const data = (res ?? {}) as unknown as Record<string, unknown>
     stats.total = Number(data.total ?? 0)
     stats.pending = Number(data.pending ?? 0)
     stats.reviewed = Number(data.reviewed ?? 0)
@@ -1716,7 +2091,7 @@ async function fetchStats() {
 
 async function countWarehousedFromSearch(): Promise<number> {
   try {
-    const res = await searchRiskClue({
+    const res = await resolveSearchFetcher()({
       reviewStatus: 20,
       isWarehouse: 1,
       page: 1,
@@ -1743,7 +2118,9 @@ function removeFilterChip(key: string) {
   if (key === 'submissionChannel') filters.submissionChannel = ''
   if (key === 'productsComponentsServices') filters.productsComponentsServices = ''
   if (key === 'submissionDateRange') filters.submissionDateRange = []
-  if (['riskCategory', 'sourceWebsite', 'operatingEntity', 'submissionChannel', 'productsComponentsServices', 'submissionDateRange'].includes(key)) {
+  if (key === 'submitUserName') filters.submitUserName = ''
+  if (key === 'submitOrgName') filters.submitOrgName = ''
+  if (['riskCategory', 'sourceWebsite', 'operatingEntity', 'submissionChannel', 'productsComponentsServices', 'submissionDateRange', 'submitUserName', 'submitOrgName'].includes(key)) {
     filterTab.value = 'submission'
   }
   if (['reviewStatus', 'isWarehouse', 'auditRiskCategory', 'operatingEntityHuman', 'auditUserName', 'auditDateRange'].includes(key)) {
@@ -1792,7 +2169,7 @@ function formatSummary(raw?: string): string {
 }
 
 function formatDateTime(raw?: string): string {
-  if (!raw) return '-'
+  if (!raw) return '—'
   let dateStr = String(raw).trim()
   dateStr = dateStr.replace('T', ' ')
   dateStr = dateStr.replace('Z', '')
@@ -1823,37 +2200,119 @@ function formatCardTime(raw?: string): string {
   return formatDateOnly(raw)
 }
 
+function buildFilterParams(includePagination = true): Record<string, unknown> {
+  const params: Record<string, unknown> = {}
+  if (includePagination) {
+    params.page = pagination.page
+    params.size = pagination.size
+  }
+  if (filters.keyword) params.keyword = filters.keyword
+  const riskCategory = buildRiskCategoryParam(filters.riskCategory)
+  if (riskCategory) params.riskCategory = riskCategory
+  if (filters.reviewStatus !== undefined) params.reviewStatus = filters.reviewStatus
+  if (filters.isWarehouse !== undefined) params.isWarehouse = filters.isWarehouse
+  const auditRiskCategory = buildRiskCategoryParam(filters.auditRiskCategory)
+  if (auditRiskCategory) params.auditRiskCategory = auditRiskCategory
+  if (filters.operatingEntityHuman) params.operatingEntityHuman = filters.operatingEntityHuman.trim()
+  if (filters.auditUserName) params.auditUserName = filters.auditUserName.trim()
+  if (filters.auditDateRange?.length === 2) {
+    params.auditStartTime = filters.auditDateRange[0]
+    params.auditEndTime = filters.auditDateRange[1]
+  }
+  if (filters.sourceWebsite) params.sourceWebsite = filters.sourceWebsite.trim()
+  if (filters.operatingEntity) params.operatingEntity = filters.operatingEntity.trim()
+  if (filters.submissionChannel) params.submissionChannel = filters.submissionChannel.trim()
+  if (filters.productsComponentsServices) {
+    params.productsComponentsServices = filters.productsComponentsServices.trim()
+  }
+  if (filters.submissionDateRange?.length === 2) {
+    params.submissionStartTime = filters.submissionDateRange[0]
+    params.submissionEndTime = filters.submissionDateRange[1]
+  }
+  if (filters.submitUserName) params.submitUserName = filters.submitUserName.trim()
+  if (filters.submitOrgName) params.submitOrgName = filters.submitOrgName.trim()
+  return params
+}
+
+const canSubmitBatchReview = computed(
+  () => batchReviewPendingCount.value > 0 && batchReviewForm.confirmed && !batchReviewDialogLoading.value,
+)
+
+function resetBatchReviewDialog() {
+  batchReviewForm.isWarehouse = 0
+  batchReviewForm.confirmed = false
+  batchReviewPendingCount.value = 0
+  batchReviewDialogLoading.value = false
+  batchReviewSubmitting.value = false
+}
+
+async function openBatchReviewDialog() {
+  batchReviewDialogVisible.value = true
+  batchReviewDialogLoading.value = true
+  batchReviewForm.isWarehouse = 0
+  batchReviewForm.confirmed = false
+  try {
+    batchReviewPendingCount.value = await fetchPendingCountForBatch()
+    if (batchReviewPendingCount.value <= 0) {
+      ElMessage.warning('当前筛选条件下没有待审核的线索')
+      batchReviewDialogVisible.value = false
+    }
+  } catch {
+    ElMessage.error('获取待审核数量失败')
+    batchReviewDialogVisible.value = false
+  } finally {
+    batchReviewDialogLoading.value = false
+  }
+}
+
+async function submitBatchReview() {
+  if (!canSubmitBatchReview.value) return
+
+  batchReviewSubmitting.value = true
+  try {
+    const payload: BatchReviewParams = {
+      ...(buildFilterParams(false) as Omit<BatchReviewParams, 'batchIsWarehouse'>),
+      batchIsWarehouse: batchReviewForm.isWarehouse,
+    }
+    const result = (await batchReviewClues(payload)) as unknown as BatchReviewResult
+    const success = Number(result?.success ?? 0)
+    const failed = Number(result?.failed ?? 0)
+    batchReviewDialogVisible.value = false
+    if (failed > 0) {
+      const detail = result.failures?.length
+        ? `\n部分失败：${result.failures.map((item) => `「${item.eventName}」${item.reason}`).join('；')}`
+        : ''
+      ElMessage.warning(`批量审核完成：成功 ${success} 条，失败 ${failed} 条${detail}`)
+    } else {
+      ElMessage.success(`批量审核完成，共处理 ${success} 条线索`)
+    }
+    drawerVisible.value = false
+    currentClue.value = null
+    reviewHistory.value = []
+    await fetchStats()
+    await fetchData()
+  } catch {
+    ElMessage.error('批量审核失败')
+  } finally {
+    batchReviewSubmitting.value = false
+  }
+}
+
+async function fetchPendingCountForBatch(): Promise<number> {
+  const params = buildFilterParams(false)
+  params.reviewStatus = 10
+  params.page = 1
+  params.size = 1
+  const res = await searchRiskClue(params as any)
+  const data = res as any
+  return Number(data?.total ?? 0)
+}
+
 async function fetchData() {
   loading.value = true
   try {
-    const params: Record<string, unknown> = {
-      page: pagination.page,
-      size: pagination.size,
-    }
-    if (filters.keyword) params.keyword = filters.keyword
-    const riskCategory = buildRiskCategoryParam(filters.riskCategory)
-    if (riskCategory) params.riskCategory = riskCategory
-    if (filters.reviewStatus !== undefined) params.reviewStatus = filters.reviewStatus
-    if (filters.isWarehouse !== undefined) params.isWarehouse = filters.isWarehouse
-    const auditRiskCategory = buildRiskCategoryParam(filters.auditRiskCategory)
-    if (auditRiskCategory) params.auditRiskCategory = auditRiskCategory
-    if (filters.operatingEntityHuman) params.operatingEntityHuman = filters.operatingEntityHuman.trim()
-    if (filters.auditUserName) params.auditUserName = filters.auditUserName.trim()
-    if (filters.auditDateRange?.length === 2) {
-      params.auditStartTime = filters.auditDateRange[0]
-      params.auditEndTime = filters.auditDateRange[1]
-    }
-    if (filters.sourceWebsite) params.sourceWebsite = filters.sourceWebsite.trim()
-    if (filters.operatingEntity) params.operatingEntity = filters.operatingEntity.trim()
-    if (filters.submissionChannel) params.submissionChannel = filters.submissionChannel.trim()
-    if (filters.productsComponentsServices) {
-      params.productsComponentsServices = filters.productsComponentsServices.trim()
-    }
-    if (filters.submissionDateRange?.length === 2) {
-      params.submissionStartTime = filters.submissionDateRange[0]
-      params.submissionEndTime = filters.submissionDateRange[1]
-    }
-    const res = await searchRiskClue(params as any)
+    const params = buildFilterParams(true)
+    const res = await resolveSearchFetcher()(params as any)
     const data = res as any
     const rawList = data?.rows || data?.records || data?.list || data?.data || []
     clueList.value = rawList.map(normalizeClueData)
@@ -1867,6 +2326,10 @@ async function fetchData() {
 
 async function handleDeleteClue() {
   if (!currentClue.value?.id) return
+  if (!canDeleteCurrentClue(currentClue.value)) {
+    ElMessage.warning('已审核的数据不可删除')
+    return
+  }
   const name = getEventName(currentClue.value)
   try {
     await ElMessageBox.confirm(
@@ -1977,6 +2440,8 @@ function handleReset() {
   filters.submissionChannel = ''
   filters.productsComponentsServices = ''
   filters.submissionDateRange = []
+  filters.submitUserName = ''
+  filters.submitOrgName = ''
   filterTab.value = 'submission'
   pagination.page = 1
   fetchData()
@@ -1987,6 +2452,13 @@ onMounted(() => {
   fetchStats()
   fetchTagTree()
   document.addEventListener('keydown', handleKeydown)
+})
+
+defineExpose({
+  refresh() {
+    fetchStats()
+    fetchData()
+  },
 })
 
 onUnmounted(() => {
@@ -2191,5 +2663,557 @@ onUnmounted(() => {
 
 .review-history-dialog .el-loading-mask {
   background-color: rgba(11, 18, 32, 0.75) !important;
+}
+
+/* 批量审核弹窗 — 暗夜科技风（挂载 body，非 scoped） */
+.batch-review-dialog-overlay {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(79, 124, 255, 0.12), transparent 55%),
+    rgba(3, 7, 14, 0.84) !important;
+  backdrop-filter: blur(10px) saturate(120%);
+}
+
+.batch-review-dialog.el-dialog {
+  --el-dialog-bg-color: transparent;
+  --el-dialog-title-font-size: #{$font-size-md};
+  --el-text-color-primary: #{$color-text-primary};
+  --el-text-color-regular: #{$color-text-regular};
+  --el-text-color-secondary: #{$color-text-secondary};
+  --el-text-color-placeholder: #{$color-text-placeholder};
+  position: relative;
+  background:
+    linear-gradient(165deg, rgba(16, 24, 42, 0.98) 0%, rgba(8, 14, 26, 1) 48%, rgba(6, 11, 20, 1) 100%) !important;
+  border: 1px solid rgba(79, 124, 255, 0.22);
+  border-radius: $border-radius-xl;
+  box-shadow:
+    0 28px 64px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(79, 124, 255, 0.1) inset,
+    0 0 48px rgba(79, 124, 255, 0.08);
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(rgba(79, 124, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79, 124, 255, 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 72%);
+    opacity: 0.7;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(79, 124, 255, 0.55),
+      rgba(16, 185, 129, 0.35),
+      rgba(79, 124, 255, 0.55),
+      transparent
+    );
+    animation: batch-review-scan 4.5s ease-in-out infinite;
+  }
+}
+
+@keyframes batch-review-scan {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scaleX(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+.batch-review-dialog .el-dialog__header {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: $spacing-4 $spacing-5;
+  border-bottom: 1px solid rgba(79, 124, 255, 0.12);
+  background: linear-gradient(180deg, rgba(79, 124, 255, 0.08), rgba(0, 0, 0, 0.18));
+}
+
+.batch-review-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-4;
+}
+
+.batch-review-dialog__header-main {
+  display: flex;
+  align-items: center;
+  gap: $spacing-3;
+  min-width: 0;
+}
+
+.batch-review-dialog__header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: $border-radius-lg;
+  color: rgba(140, 180, 255, 0.95);
+  background: linear-gradient(135deg, rgba(79, 124, 255, 0.22), rgba(79, 124, 255, 0.06));
+  border: 1px solid rgba(79, 124, 255, 0.28);
+  box-shadow: 0 0 20px rgba(79, 124, 255, 0.15);
+}
+
+.batch-review-dialog__title {
+  margin: 0;
+  font-family: $font-family-display;
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: rgba(255, 255, 255, 0.96);
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+}
+
+.batch-review-dialog__subtitle {
+  margin: 2px 0 0;
+  font-size: $font-size-xs;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(140, 165, 210, 0.72);
+}
+
+.batch-review-dialog__status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: $border-radius-full;
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.12em;
+  color: rgba(255, 160, 120, 0.95);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.12);
+}
+
+.batch-review-dialog__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff6b4a;
+  box-shadow: 0 0 8px rgba(255, 107, 74, 0.85);
+  animation: batch-review-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes batch-review-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+.batch-review-dialog .el-dialog__headerbtn {
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  z-index: 2;
+}
+
+.batch-review-dialog .el-dialog__headerbtn .el-dialog__close {
+  color: rgba(160, 180, 210, 0.72) !important;
+  font-size: 18px;
+}
+
+.batch-review-dialog .el-dialog__headerbtn:hover .el-dialog__close {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.batch-review-dialog .el-dialog__body {
+  position: relative;
+  z-index: 1;
+  padding: $spacing-4 $spacing-5 $spacing-5;
+  color: $color-text-regular;
+  background: transparent;
+}
+
+.batch-review-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-4;
+  min-height: 120px;
+}
+
+.batch-review-dialog__risk-panel {
+  display: flex;
+  gap: $spacing-3;
+  padding: $spacing-3 $spacing-4;
+  border-radius: $border-radius-lg;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.03));
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.batch-review-dialog__risk-panel-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: $border-radius-md;
+  color: rgba(255, 150, 130, 0.95);
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.24);
+}
+
+.batch-review-dialog__risk-panel-title {
+  margin: 0 0 4px;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: rgba(255, 190, 170, 0.96);
+}
+
+.batch-review-dialog__risk-panel-desc {
+  margin: 0;
+  font-size: $font-size-sm;
+  line-height: 1.6;
+  color: rgba(230, 200, 195, 0.78);
+}
+
+.batch-review-dialog__metrics {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: $spacing-3;
+  padding: $spacing-3;
+  border-radius: $border-radius-lg;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(79, 124, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.batch-review-dialog__metric-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: $spacing-3;
+  border-radius: $border-radius-md;
+  background: linear-gradient(160deg, rgba(79, 124, 255, 0.14), rgba(79, 124, 255, 0.04));
+  border: 1px solid rgba(79, 124, 255, 0.22);
+}
+
+.batch-review-dialog__metric-label {
+  font-size: $font-size-xs;
+  color: rgba(160, 185, 230, 0.72);
+  letter-spacing: 0.04em;
+}
+
+.batch-review-dialog__metric-value {
+  font-family: $font-family-display;
+  font-size: 28px;
+  font-weight: $font-weight-semibold;
+  line-height: 1.1;
+  color: rgba(140, 190, 255, 0.98);
+  text-shadow: 0 0 24px rgba(79, 124, 255, 0.35);
+}
+
+.batch-review-dialog__metric-unit {
+  font-size: $font-size-xs;
+  color: rgba(160, 185, 230, 0.58);
+}
+
+.batch-review-dialog__mapping-label {
+  display: block;
+  margin-bottom: $spacing-2;
+  font-size: $font-size-xs;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(160, 185, 230, 0.65);
+}
+
+.batch-review-dialog__mapping-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.batch-review-dialog__mapping-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: $font-size-xs;
+}
+
+.batch-review-dialog__mapping-from {
+  padding: 2px 8px;
+  border-radius: $border-radius-sm;
+  color: rgba(200, 215, 240, 0.82);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.batch-review-dialog__mapping-arrow {
+  color: rgba(79, 124, 255, 0.75);
+  font-family: $font-family-display;
+}
+
+.batch-review-dialog__mapping-to {
+  padding: 2px 8px;
+  border-radius: $border-radius-sm;
+  color: rgba(140, 210, 175, 0.92);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+}
+
+.batch-review-dialog__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-3;
+  margin-bottom: $spacing-3;
+}
+
+.batch-review-dialog__section-label {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: rgba(220, 228, 240, 0.88);
+}
+
+.batch-review-dialog__section-tag {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: rgba(140, 165, 210, 0.72);
+  padding: 2px 8px;
+  border-radius: $border-radius-full;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.batch-review-dialog .warehouse-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-3;
+}
+
+.batch-review-dialog .warehouse-toggle__option {
+  display: flex;
+  align-items: center;
+  gap: $spacing-3;
+  padding: $spacing-3 $spacing-4;
+  border: 1px solid rgba(79, 124, 255, 0.12);
+  border-radius: $border-radius-lg;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition:
+    border-color $duration-base $ease-out,
+    background $duration-base $ease-out,
+    box-shadow $duration-base $ease-out,
+    transform $duration-base $ease-out;
+
+  &:hover:not(:disabled) {
+    border-color: rgba(79, 124, 255, 0.28);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &.is-active.warehouse-toggle__option--yes {
+    border-color: rgba(16, 185, 129, 0.42);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.04));
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08), 0 0 24px rgba(16, 185, 129, 0.1);
+  }
+
+  &.is-active.warehouse-toggle__option--no {
+    border-color: rgba(99, 102, 241, 0.38);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.04));
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+  }
+}
+
+.batch-review-dialog .warehouse-toggle__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: $border-radius-md;
+  font-size: 16px;
+
+  &--yes {
+    color: rgba(140, 210, 175, 0.95);
+    background: rgba(16, 185, 129, 0.12);
+  }
+
+  &--no {
+    color: rgba(170, 175, 230, 0.9);
+    background: rgba(99, 102, 241, 0.12);
+  }
+}
+
+.batch-review-dialog .warehouse-toggle__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  strong {
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    color: rgba(230, 237, 247, 0.92);
+  }
+
+  small {
+    font-size: $font-size-xs;
+    color: rgba(160, 180, 210, 0.62);
+  }
+}
+
+.batch-review-dialog__confirm {
+  display: block;
+  padding: $spacing-3 $spacing-4;
+  border-radius: $border-radius-lg;
+  background: rgba(239, 68, 68, 0.04);
+  border: 1px dashed rgba(239, 68, 68, 0.22);
+  cursor: pointer;
+  transition:
+    background $duration-base $ease-out,
+    border-color $duration-base $ease-out,
+    box-shadow $duration-base $ease-out;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.07);
+    border-color: rgba(239, 68, 68, 0.32);
+  }
+
+  &.is-checked {
+    background: rgba(239, 68, 68, 0.1);
+    border-style: solid;
+    border-color: rgba(239, 68, 68, 0.35);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.08);
+  }
+
+  .el-checkbox__label {
+    line-height: 1.55;
+    color: rgba(248, 190, 190, 0.88) !important;
+    white-space: normal;
+  }
+
+  .el-checkbox__input.is-checked + .el-checkbox__label {
+    color: rgba(255, 210, 210, 0.96) !important;
+  }
+
+  .el-checkbox__inner {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(239, 68, 68, 0.35);
+  }
+
+  .el-checkbox__input.is-checked .el-checkbox__inner {
+    background: rgba(239, 68, 68, 0.85);
+    border-color: rgba(239, 68, 68, 0.85);
+  }
+}
+
+.batch-review-dialog .el-dialog__footer {
+  position: relative;
+  z-index: 1;
+  padding: $spacing-3 $spacing-5 $spacing-5;
+  border-top: 1px solid rgba(79, 124, 255, 0.1);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.28));
+}
+
+.batch-review-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $spacing-3;
+}
+
+.batch-review-dialog__cancel-btn {
+  height: 36px;
+  padding: 0 18px;
+  border-radius: $border-radius-md;
+  color: rgba(200, 210, 230, 0.82) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+
+  &:hover:not(:disabled) {
+    color: rgba(230, 237, 247, 0.95) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(79, 124, 255, 0.22) !important;
+  }
+}
+
+.batch-review-dialog__submit-btn {
+  height: 36px;
+  padding: 0 20px;
+  border-radius: $border-radius-md;
+  font-weight: $font-weight-semibold;
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.92), rgba(185, 28, 28, 0.92)) !important;
+  box-shadow: 0 0 24px rgba(239, 68, 68, 0.22);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(248, 80, 80, 0.96), rgba(200, 35, 35, 0.96)) !important;
+    box-shadow: 0 0 28px rgba(239, 68, 68, 0.32);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    box-shadow: none;
+  }
+}
+
+.batch-review-dialog .el-loading-mask {
+  background-color: rgba(8, 14, 26, 0.78) !important;
+  backdrop-filter: blur(2px);
+}
+
+@media (max-width: 640px) {
+  .batch-review-dialog__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .batch-review-dialog__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .batch-review-dialog .warehouse-toggle {
+    grid-template-columns: 1fr;
+  }
+
+  .batch-review-dialog__footer {
+    flex-direction: column-reverse;
+
+    .el-button {
+      width: 100%;
+    }
+  }
 }
 </style>

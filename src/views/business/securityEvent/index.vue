@@ -58,11 +58,14 @@
                 <el-cascader
                   v-model="filters.auditRiskCategory"
                   :options="tagTree"
-                  :props="categoryCascaderProps"
+                  :props="categoryFilterCascaderProps"
                   placeholder="风险类别"
                   clearable
                   filterable
+                  collapse-tags
+                  collapse-tags-tooltip
                   class="sec-query__control sec-query__control--category"
+                  popper-class="app-tag-cascader-popper"
                   aria-label="风险类别"
                   @change="handleSearch"
                 />
@@ -165,6 +168,60 @@
                       >
                         <template #prefix>
                           <el-icon><Goods /></el-icon>
+                        </template>
+                      </el-input>
+                    </div>
+                    <div class="sec-query-panel__item">
+                      <label class="sec-query-panel__label" for="filter-submit-user">
+                        <el-icon><User /></el-icon>
+                        报送人
+                      </label>
+                      <el-input
+                        id="filter-submit-user"
+                        v-model="filters.submitUserName"
+                        placeholder="模糊匹配报送人"
+                        clearable
+                        class="sec-query-panel__input"
+                        @keyup.enter="applyMoreFilters"
+                      >
+                        <template #prefix>
+                          <el-icon><User /></el-icon>
+                        </template>
+                      </el-input>
+                    </div>
+                    <div class="sec-query-panel__item">
+                      <label class="sec-query-panel__label" for="filter-submit-org">
+                        <el-icon><OfficeBuilding /></el-icon>
+                        报送部门
+                      </label>
+                      <el-input
+                        id="filter-submit-org"
+                        v-model="filters.submitOrgName"
+                        placeholder="模糊匹配报送部门"
+                        clearable
+                        class="sec-query-panel__input"
+                        @keyup.enter="applyMoreFilters"
+                      >
+                        <template #prefix>
+                          <el-icon><OfficeBuilding /></el-icon>
+                        </template>
+                      </el-input>
+                    </div>
+                    <div class="sec-query-panel__item">
+                      <label class="sec-query-panel__label" for="filter-submit-channel">
+                        <el-icon><Share /></el-icon>
+                        报送渠道
+                      </label>
+                      <el-input
+                        id="filter-submit-channel"
+                        v-model="filters.submissionChannel"
+                        placeholder="模糊匹配报送渠道"
+                        clearable
+                        class="sec-query-panel__input"
+                        @keyup.enter="applyMoreFilters"
+                      >
+                        <template #prefix>
+                          <el-icon><Share /></el-icon>
                         </template>
                       </el-input>
                     </div>
@@ -312,6 +369,11 @@
                     <span class="event-card__meta-key">审核人</span>
                     <span class="event-card__meta-val">{{ getCardAuditor(item) }}</span>
                   </span>
+                  <span v-if="isEventShared(item)" class="event-card__meta-item event-card__meta-item--shared">
+                    <el-icon class="event-card__meta-icon"><Share /></el-icon>
+                    <span class="event-card__meta-key">共享</span>
+                    <span class="event-card__meta-val">{{ formatCardDateTime(getShareTime(item)) }}</span>
+                  </span>
                 </div>
               </div>
             </article>
@@ -346,6 +408,7 @@
             v-model:current-page="pagination.page"
             v-model:page-size="pagination.size"
             class="sec-pagination"
+            popper-class="app-pagination-popper"
             :total="pagination.total"
             :page-sizes="[12, 16, 24, 48]"
             layout="sizes, prev, pager, next, jumper"
@@ -375,6 +438,7 @@
         </div>
         <div class="panel-header__actions">
           <button
+            v-if="canDeleteCurrentEvent(currentEvent)"
             type="button"
             class="panel-delete-btn"
             :disabled="deleteLoading"
@@ -383,6 +447,17 @@
           >
             <el-icon><Delete /></el-icon>
             <span>删除</span>
+          </button>
+          <button
+            type="button"
+            class="panel-share-btn"
+            :class="{ 'is-shared': isEventShared(currentEvent) }"
+            :disabled="shareLoading || !currentEvent"
+            :aria-label="isEventShared(currentEvent) ? '取消共享' : '共享事件'"
+            @click="handleToggleShare"
+          >
+            <el-icon><Share /></el-icon>
+            <span>{{ isEventShared(currentEvent) ? '取消共享' : '共享' }}</span>
           </button>
           <button type="button" class="panel-close" aria-label="关闭详情" @click="drawerVisible = false">
             <el-icon><Close /></el-icon>
@@ -402,6 +477,13 @@
               <span v-if="getHumanReportCategory(currentEvent) !== '—'" class="detail-hero__chip detail-hero__chip--category">
                 <el-icon><CollectionTag /></el-icon>
                 {{ getHumanReportCategory(currentEvent) }}
+              </span>
+              <span
+                class="detail-hero__chip"
+                :class="isEventShared(currentEvent) ? 'detail-hero__chip--shared' : 'detail-hero__chip--unshared'"
+              >
+                <el-icon><Share /></el-icon>
+                {{ isEventShared(currentEvent) ? '已共享' : '未共享' }}
               </span>
             </div>
           </div>
@@ -541,6 +623,14 @@
                 <dt>入库时间</dt>
                 <dd>{{ formatDateTime(currentEvent.warehouse_time || currentEvent.warehouseTime) }}</dd>
               </div>
+              <div class="detail-dl__row">
+                <dt>是否共享</dt>
+                <dd>{{ isEventShared(currentEvent) ? '是' : '否' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>共享时间</dt>
+                <dd>{{ getShareTimeDisplay(currentEvent) }}</dd>
+              </div>
               <div class="detail-dl__row detail-dl__row--full">
                 <dt>产品/组件/服务</dt>
                 <dd>{{ currentEvent.products_components_services || currentEvent.productsComponentsServices || '—' }}</dd>
@@ -548,7 +638,7 @@
               <div class="detail-dl__row detail-dl__row--full">
                 <dt>风险描述</dt>
                 <dd class="detail-dl__prose">
-                  {{ currentEvent.risk_description_human || currentEvent.riskDescriptionHuman || '—' }}
+                  {{ getEventRiskDescription(currentEvent) || '—' }}
                 </dd>
               </div>
               <div
@@ -610,11 +700,13 @@ import {
   getEventById,
   getEventStats,
   deleteSecurityEvent,
+  toggleSecurityEventShare,
   type SecurityEvent,
 } from '@/api/securityEvent'
 
 const loading = ref(false)
 const deleteLoading = ref(false)
+const shareLoading = ref(false)
 const drawerVisible = ref(false)
 const drawerWidth = ref(960)
 const filterPopoverVisible = ref(false)
@@ -663,9 +755,14 @@ const categoryCascaderProps = {
   emitPath: true,
 }
 
+const categoryFilterCascaderProps = {
+  ...categoryCascaderProps,
+  multiple: true,
+}
+
 const filters = reactive({
   keyword: '',
-  auditRiskCategory: [] as string[],
+  auditRiskCategory: [] as string[][],
   sourceWebsite: '',
   operatingEntityHuman: '',
   productsComponentsServices: '',
@@ -801,10 +898,22 @@ function formatSummary(raw?: string): string {
   return text
 }
 
+/** 列表/详情用：优先审核描述，否则回退报送描述 */
+function getEventRiskDescription(item: SecurityEvent): string {
+  const human = item.risk_description_human || item.riskDescriptionHuman
+  let text = formatSummary(human)
+  if (text) return text
+  const raw =
+    item.risk_description ||
+    item.riskDescription ||
+    item.summary ||
+    item.content
+  text = formatSummary(raw)
+  return text || ''
+}
+
 function getCardRiskDescription(item: SecurityEvent): string {
-  const raw = item.risk_description_human || item.riskDescriptionHuman
-  const text = formatSummary(raw)
-  return text || '暂无风险描述'
+  return getEventRiskDescription(item) || '暂无风险描述'
 }
 
 function getCardWarehouseTime(item: SecurityEvent): string | undefined {
@@ -835,6 +944,47 @@ function getCardSubmissionTime(item: SecurityEvent): string {
 function getCardAuditor(item: SecurityEvent): string {
   const raw = item.audit_user_name || item.auditUserName
   return raw ? String(raw).trim() : ''
+}
+
+function isEventShared(item: SecurityEvent | null | undefined): boolean {
+  if (!item) return false
+  const raw = item.is_shared ?? item.isShared
+  return raw === 1
+}
+
+function getShareTime(item: SecurityEvent): string | undefined {
+  return item.share_time || item.shareTime
+}
+
+function getShareTimeDisplay(item: SecurityEvent | null | undefined): string {
+  if (!item || !isEventShared(item)) return '—'
+  return formatDateTime(getShareTime(item))
+}
+
+function applyShareState(event: SecurityEvent, isShared: number, shareTime: string | null) {
+  event.is_shared = isShared
+  event.isShared = isShared
+  event.share_time = shareTime || undefined
+  event.shareTime = shareTime || undefined
+}
+
+async function handleToggleShare() {
+  if (!currentEvent.value?.id) return
+  shareLoading.value = true
+  try {
+    const res = await toggleSecurityEventShare(currentEvent.value.id)
+    applyShareState(currentEvent.value, res.isShared, res.shareTime)
+    const idx = eventList.value.findIndex((e) => e.id === currentEvent.value?.id)
+    if (idx >= 0) {
+      applyShareState(eventList.value[idx], res.isShared, res.shareTime)
+    }
+    ElMessage.success(res.isShared === 1 ? '已设为共享' : '已取消共享')
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : '操作失败'
+    ElMessage.error(msg)
+  } finally {
+    shareLoading.value = false
+  }
 }
 
 function toTagArray(raw: unknown): string[] {
@@ -875,10 +1025,17 @@ function getHumanReportCategory(item: SecurityEvent): string {
 
 function normalizeEvent(item: SecurityEvent): SecurityEvent {
   const category = getCardCategory(item)
+  const riskDesc = getEventRiskDescription(item)
   return {
     ...item,
     event_name: getEventName(item),
     eventName: getEventName(item),
+    risk_description: riskDesc || item.risk_description,
+    riskDescription: riskDesc || item.riskDescription,
+    risk_description_human:
+      item.risk_description_human || item.riskDescriptionHuman || riskDesc || undefined,
+    riskDescriptionHuman:
+      item.riskDescriptionHuman || item.risk_description_human || riskDesc || undefined,
     _cardCategories: getHumanCategoryLabels(item),
     _cardPrimaryCategory: category.label,
     _cardCategoryColorIndex: category.colorIndex,
@@ -886,15 +1043,28 @@ function normalizeEvent(item: SecurityEvent): SecurityEvent {
   }
 }
 
-function formatRiskCategoryPath(path?: string[] | string): string {
+function formatRiskCategoryPath(path?: string[] | string[][] | string): string {
   if (!path) return ''
-  if (Array.isArray(path)) return path.filter(Boolean).join(' / ')
-  return String(path).trim()
+  if (typeof path === 'string') return path.trim()
+  if (!Array.isArray(path) || !path.length) return ''
+  if (Array.isArray(path[0])) {
+    return (path as string[][])
+      .map((item) => item.filter(Boolean).join(' / '))
+      .filter(Boolean)
+      .join('、')
+  }
+  return (path as string[]).filter(Boolean).join(' / ')
 }
 
-function buildRiskCategoryParam(path?: string[]): string | undefined {
+function buildRiskCategoryParam(path?: string[] | string[][]): string | undefined {
   if (!path?.length) return undefined
-  const value = path.filter(Boolean).join('/')
+  if (Array.isArray(path[0])) {
+    const values = (path as string[][])
+      .map((item) => item.filter(Boolean).join('/'))
+      .filter(Boolean)
+    return values.length ? values.join(',') : undefined
+  }
+  const value = (path as string[]).filter(Boolean).join('/')
   return value || undefined
 }
 
@@ -1043,8 +1213,17 @@ async function fetchStats() {
   }
 }
 
+/** 安全事件库均为已审核入库数据，不允许删除 */
+function canDeleteCurrentEvent(_item: SecurityEvent | null): boolean {
+  return false
+}
+
 async function handleDeleteEvent() {
   if (!currentEvent.value?.id) return
+  if (!canDeleteCurrentEvent(currentEvent.value)) {
+    ElMessage.warning('已审核的数据不可删除')
+    return
+  }
   const name = getEventName(currentEvent.value)
   try {
     await ElMessageBox.confirm(

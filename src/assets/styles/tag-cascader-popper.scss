@@ -1,0 +1,90 @@
+@use './variables.scss' as *;
+
+/* 风险类别级联下拉（挂载 body，全局复用） */
+.app-tag-cascader-popper.el-popper {
+  background: linear-gradient(180deg, rgba(14, 24, 44, 0.98), rgba(8, 14, 26, 0.99)) !important;
+  border: 1px solid rgba(79, 124, 255, 0.22) !important;
+  box-shadow:
+    0 0 40px rgba(79, 124, 255, 0.12),
+    0 16px 48px rgba(0, 0, 0, 0.55) !important;
+
+  .el-popper__arrow::before {
+    background: rgba(14, 24, 44, 0.98) !important;
+    border-color: rgba(79, 124, 255, 0.22) !important;
+  }
+
+  .el-cascader-panel {
+    border: none;
+    background: transparent;
+  }
+
+  .el-cascader-menu {
+    min-width: 200px;
+    border-right-color: rgba(79, 124, 255, 0.12);
+    color: rgba(220, 230, 250, 0.88);
+    background: transparent;
+  }
+
+  .el-cascader-menu:last-child {
+    border-right: none;
+  }
+
+  .el-cascader-node {
+    color: rgba(200, 215, 240, 0.82);
+
+    .el-checkbox__inner {
+      background: rgba(0, 0, 0, 0.25);
+      border-color: rgba(79, 124, 255, 0.35);
+    }
+
+    .el-checkbox__input.is-checked .el-checkbox__inner,
+    .el-checkbox__input.is-indeterminate .el-checkbox__inner {
+      background: rgba(79, 124, 255, 0.75);
+      border-color: rgba(79, 124, 255, 0.75);
+    }
+
+    &:hover,
+    &:focus {
+      background: rgba(79, 124, 255, 0.12);
+    }
+
+    &.is-active {
+      color: rgba(255, 200, 120, 0.95);
+      font-weight: $font-weight-medium;
+    }
+
+    &.in-active-path {
+      color: rgba(180, 210, 255, 0.95);
+      background: rgba(79, 124, 255, 0.08);
+    }
+  }
+
+  .el-cascader-node__label {
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.45;
+  }
+
+  .el-cascader__suggestion-panel {
+    background: transparent;
+    border-top-color: rgba(79, 124, 255, 0.12);
+  }
+
+  .el-cascader__suggestion-list {
+    color: rgba(220, 230, 250, 0.88);
+  }
+
+  .el-cascader__suggestion-item {
+    color: rgba(200, 215, 240, 0.82);
+
+    &:hover,
+    &.is-checked {
+      background: rgba(79, 124, 255, 0.12);
+      color: rgba(255, 200, 120, 0.95);
+    }
+  }
+
+  .el-cascader__empty-text {
+    color: rgba(160, 180, 210, 0.55);
+  }
+}

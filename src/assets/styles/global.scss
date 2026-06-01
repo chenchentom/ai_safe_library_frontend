@@ -4,6 +4,11 @@
 @use './reset.scss';
 @use './variables.scss' as *;
 @use './date-range-picker.scss';
+@use './tag-cascader-popper.scss';
+@use './message-box.scss';
+@use './pagination-popper.scss';
+@use './sidebar-menu-popper.scss';
+@use './system-admin.scss';
 
 // Element Plus CSS 变量覆盖
 :root {
@@ -35,6 +40,7 @@
   --el-bg-color: #{$color-bg-white};
   --el-bg-color-page: #{$color-bg};
   --el-bg-color-overlay: #{$color-bg-white};
+  --el-mask-color: rgba(3, 6, 12, 0.72);
 
   // 文字
   --el-text-color-primary: #{$color-text-primary};

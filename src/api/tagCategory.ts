@@ -1,10 +1,13 @@
 import { get, post, put, del } from './index'
 
+/** 标签 ID（雪花算法，前端必须用 string 避免精度丢失） */
+export type TagId = string
+
 // 标签分类树节点（后端返回的 raw 格式）
 export interface TagCategoryNode {
-  id: number
+  id: TagId
   label: string
-  parentId: number
+  parentId: TagId
   tagCode: string
   tagLevel: number
   tagPath: string
@@ -17,8 +20,8 @@ export interface TagCategoryNode {
 
 // 标签表单数据
 export interface TagCategoryForm {
-  id?: number
-  parentId: number
+  id?: TagId
+  parentId: TagId | number
   module: string
   tagName: string
   tagCode: string
@@ -28,13 +31,28 @@ export interface TagCategoryForm {
   status: string
 }
 
+function normalizeTagId(value: unknown): TagId {
+  if (value === null || value === undefined || value === '') return '0'
+  return String(value)
+}
+
+function normalizeTagNode(node: TagCategoryNode): TagCategoryNode {
+  return {
+    ...node,
+    id: normalizeTagId(node.id),
+    parentId: normalizeTagId(node.parentId),
+    children: (node.children ?? []).map(normalizeTagNode),
+  }
+}
+
 // 获取树结构
-export function getTagTree(module = 'risk_clue') {
-  return get<TagCategoryNode[]>('/system/tag/tree', { module } as unknown as Record<string, unknown>)
+export async function getTagTree(module = 'risk_clue') {
+  const list = await get<TagCategoryNode[]>('/system/tag/tree', { module } as unknown as Record<string, unknown>)
+  return (list ?? []).map(normalizeTagNode)
 }
 
 // 获取单个标签
-export function getTagById(id: number) {
+export function getTagById(id: TagId) {
   return get<TagCategoryNode>(`/system/tag/${id}`)
 }
 
@@ -49,7 +67,7 @@ export function updateTag(data: TagCategoryForm) {
 }
 
 // 删除
-export function deleteTag(id: number) {
+export function deleteTag(id: TagId) {
   return del(`/system/tag/${id}`)
 }
 
@@ -59,6 +77,6 @@ export function searchTag(keyword: string) {
 }
 
 // 更新排序（sortOrder 以查询参数传递，后端 @RequestParam 接收）
-export function updateTagSort(id: number, sortOrder: number) {
+export function updateTagSort(id: TagId, sortOrder: number) {
   return put(`/system/tag/${id}/sort?sortOrder=${sortOrder}`)
 }

@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { login as loginApi, logout as logoutApi, getUserInfo, type UserInfo } from '@/api/auth'
+import type { MenuItem } from '@/types/menu'
+import { collectMenuPaths } from '@/utils/menuIcon'
 
 export const useAuthStore = defineStore('auth', () => {
-  // state
   const token = ref<string>(localStorage.getItem('token') || '')
   const userInfo = ref<UserInfo | null>(
     (() => {
@@ -16,45 +17,38 @@ export const useAuthStore = defineStore('auth', () => {
     })()
   )
 
-  // actions
+  const menus = computed(() => userInfo.value?.menus || [])
+  const permissions = computed(() => userInfo.value?.permissions || [])
+  const roles = computed(() => userInfo.value?.roles || [])
+  const superAdmin = computed(() => !!userInfo.value?.superAdmin || roles.value.includes('admin'))
+  const allowedPaths = computed(() => collectMenuPaths(menus.value))
+
   async function login(username: string, password: string) {
     const res: any = await loginApi({ username, password })
-    console.log('[auth store] 登录响应 (已由拦截器处理):', res)
-    
-    // 现在响应拦截器直接返回了 res.data，所以 SaTokenInfo 就是 res 本身
     const tokenValue = res?.tokenValue || res?.token
-    console.log('[auth store] 提取到的 token:', tokenValue)
-    
     if (!tokenValue) {
       throw new Error('登录响应中未找到 token')
     }
-    
     token.value = tokenValue
     localStorage.setItem('token', tokenValue)
-    console.log('[auth store] Token 已保存到 localStorage')
-    
-    // 登录成功后获取用户信息
     await fetchUserInfo()
   }
 
   async function fetchUserInfo() {
-    try {
-      console.log('[auth store] 开始获取用户信息...')
-      console.log('[auth store] 当前 token:', token.value)
-      const res = await getUserInfo()
-      console.log('[auth store] 获取用户信息成功 (已由拦截器处理):', res)
-      // 现在响应拦截器直接返回了 res.data，所以用户信息就是 res 本身
-      userInfo.value = res
-      localStorage.setItem('userInfo', JSON.stringify(res))
-    } catch (error) {
-      console.error('[auth store] 获取用户信息失败:', error)
-      // 获取用户信息失败，清除 token
-      token.value = ''
-      userInfo.value = null
-      localStorage.removeItem('token')
-      localStorage.removeItem('userInfo')
-      throw new Error('获取用户信息失败')
-    }
+    const res = await getUserInfo()
+    userInfo.value = res
+    localStorage.setItem('userInfo', JSON.stringify(res))
+  }
+
+  function hasPermission(perm: string) {
+    if (superAdmin.value) return true
+    return permissions.value.includes(perm)
+  }
+
+  function canAccessPath(path: string) {
+    if (superAdmin.value) return true
+    if (!path || path === '/login' || path === '/403' || path === '/404') return true
+    return allowedPaths.value.includes(path)
   }
 
   async function logout() {
@@ -70,19 +64,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // getters
   const isLoggedIn = () => !!token.value
-  const roles = () => userInfo.value?.roles || []
-  const permissions = () => userInfo.value?.permissions || []
 
   return {
     token,
     userInfo,
+    menus,
+    permissions,
+    roles,
+    superAdmin,
+    allowedPaths,
     login,
     fetchUserInfo,
     logout,
     isLoggedIn,
-    roles,
-    permissions,
+    hasPermission,
+    canAccessPath,
   }
 })

@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <div class="page-container system-admin">
     <!-- 搜索栏 -->
     <div class="search-form">
       <el-form :model="searchForm" inline>
@@ -10,7 +10,7 @@
           <el-input v-model="searchForm.phonenumber" placeholder="请输入手机号" clearable />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="searchForm.status" placeholder="用户状态" clearable style="width: 120px">
+          <el-select v-model="searchForm.status" placeholder="用户状态" clearable popper-class="system-admin-popper" style="width: 120px">
             <el-option label="正常" value="0" />
             <el-option label="停用" value="1" />
           </el-select>
@@ -23,6 +23,7 @@
             start-placeholder="开始日期"
             end-placeholder="结束日期"
             value-format="YYYY-MM-DD"
+            popper-class="system-admin-popper"
             style="width: 240px"
           />
         </el-form-item>
@@ -90,6 +91,7 @@
           v-model:current-page="pagination.pageNum"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
+          popper-class="app-pagination-popper"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
           background
@@ -104,6 +106,7 @@
       v-model="dialogVisible"
       :title="dialogTitle"
       width="600px"
+      class="system-admin-dialog"
       :close-on-click-modal="false"
       destroy-on-close
     >
@@ -114,6 +117,29 @@
         <el-form-item label="昵称" prop="nickName">
           <el-input v-model="formData.nickName" placeholder="请输入昵称" />
         </el-form-item>
+        <template v-if="!formData.userId">
+          <el-form-item label="登录密码" prop="password">
+            <el-input
+              v-model="formData.password"
+              type="password"
+              show-password
+              placeholder="6-32 位，不填则默认为 admin123"
+              autocomplete="new-password"
+            />
+          </el-form-item>
+          <el-form-item label="确认密码" prop="confirmPassword">
+            <el-input
+              v-model="formData.confirmPassword"
+              type="password"
+              show-password
+              placeholder="请再次输入密码"
+              autocomplete="new-password"
+            />
+          </el-form-item>
+        </template>
+        <el-form-item v-else label="密码">
+          <span class="pwd-hint">编辑用户不修改密码，可在列表中点击「重置密码」设置新密码</span>
+        </el-form-item>
         <el-form-item label="部门" prop="deptId">
           <el-tree-select
             v-model="formData.deptId"
@@ -122,6 +148,8 @@
             value-key="id"
             placeholder="请选择部门"
             check-strictly
+            filterable
+            popper-class="system-admin-popper"
             style="width: 100%"
           />
         </el-form-item>
@@ -130,6 +158,11 @@
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="formData.email" placeholder="请输入邮箱" />
+        </el-form-item>
+        <el-form-item label="个人角色">
+          <el-select v-model="formData.roleIds" multiple collapse-tags popper-class="system-admin-popper" placeholder="额外绑定角色（与部门角色合并生效）" style="width: 100%">
+            <el-option v-for="r in roleOptions" :key="r.roleId" :label="r.roleName" :value="r.roleId" />
+          </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="formData.status">
@@ -143,6 +176,45 @@
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 重置密码 -->
+    <el-dialog
+      v-model="resetPwdVisible"
+      title="重置密码"
+      width="480px"
+      class="system-admin-dialog"
+      :close-on-click-modal="false"
+      destroy-on-close
+      @closed="resetResetPwdForm"
+    >
+      <p v-if="resetPwdTarget" class="reset-pwd-user">
+        为用户 <strong>{{ resetPwdTarget.userName }}</strong> 设置新登录密码
+      </p>
+      <el-form ref="resetPwdFormRef" :model="resetPwdForm" :rules="resetPwdRules" label-width="90px">
+        <el-form-item label="新密码" prop="password">
+          <el-input
+            v-model="resetPwdForm.password"
+            type="password"
+            show-password
+            placeholder="6-32 位"
+            autocomplete="new-password"
+          />
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirmPassword">
+          <el-input
+            v-model="resetPwdForm.confirmPassword"
+            type="password"
+            show-password
+            placeholder="请再次输入新密码"
+            autocomplete="new-password"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="resetPwdVisible = false">取消</el-button>
+        <el-button type="primary" :loading="resetPwdLoading" @click="submitResetPwd">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -150,16 +222,22 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Search, Refresh, Plus, Delete, RefreshRight, Edit } from '@element-plus/icons-vue'
-import { getUserList, addUser, updateUser, deleteUser, resetPassword } from '@/api/user'
+import { getUserList, addUser, updateUser, deleteUser, resetPassword, checkUserUnique } from '@/api/user'
 import { getDeptList } from '@/api/dept'
+import { getRoleList, type RoleData } from '@/api/role'
 
 const loading = ref(false)
 const submitLoading = ref(false)
+const resetPwdLoading = ref(false)
 const dialogVisible = ref(false)
+const resetPwdVisible = ref(false)
 const formRef = ref<FormInstance>()
+const resetPwdFormRef = ref<FormInstance>()
+const resetPwdTarget = ref<{ userId: number; userName: string } | null>(null)
 const selectedIds = ref<number[]>([])
 const tableData = ref<any[]>([])
 const deptTree = ref<any[]>([])
+const roleOptions = ref<RoleData[]>([])
 const treeProps = {
   label: 'label',
   children: 'children',
@@ -186,17 +264,124 @@ const formData = reactive({
   phonenumber: '',
   email: '',
   status: '0',
+  roleIds: [] as number[],
+  password: '',
+  confirmPassword: '',
 })
 
+const validateConfirmPassword = (_rule: unknown, value: string, callback: (err?: Error) => void) => {
+  if (formData.password && value !== formData.password) {
+    callback(new Error('两次输入的密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+const validateUserNameUnique = async (_rule: unknown, value: string, callback: (err?: Error) => void) => {
+  const trimmed = value?.trim()
+  if (!trimmed) {
+    callback()
+    return
+  }
+  try {
+    const res = await checkUserUnique({
+      userName: trimmed,
+      userId: formData.userId || undefined,
+    })
+    if (res.userNameUnique === false) {
+      callback(new Error('用户名已存在'))
+      return
+    }
+    callback()
+  } catch {
+    callback()
+  }
+}
+
+const validateNickNameUnique = async (_rule: unknown, value: string, callback: (err?: Error) => void) => {
+  const trimmed = value?.trim()
+  if (!trimmed) {
+    callback()
+    return
+  }
+  try {
+    const res = await checkUserUnique({
+      nickName: trimmed,
+      userId: formData.userId || undefined,
+    })
+    if (res.nickNameUnique === false) {
+      callback(new Error('昵称已存在'))
+      return
+    }
+    callback()
+  } catch {
+    callback()
+  }
+}
+
 const formRules: FormRules = {
-  userName: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  nickName: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+  userName: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { validator: validateUserNameUnique, trigger: 'blur' },
+  ],
+  nickName: [
+    { required: true, message: '请输入昵称', trigger: 'blur' },
+    { validator: validateNickNameUnique, trigger: 'blur' },
+  ],
+  password: [
+    {
+      validator: (_rule, value, callback) => {
+        if (!value) {
+          callback()
+          return
+        }
+        if (value.length < 6 || value.length > 32) {
+          callback(new Error('密码长度为 6-32 位'))
+          return
+        }
+        callback()
+      },
+      trigger: 'blur',
+    },
+  ],
+  confirmPassword: [{ validator: validateConfirmPassword, trigger: 'blur' }],
   phonenumber: [
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' },
   ],
 }
 
 const dialogTitle = computed(() => (formData.userId ? '编辑用户' : '新增用户'))
+
+const resetPwdForm = reactive({
+  password: '',
+  confirmPassword: '',
+})
+
+const validateResetConfirmPassword = (_rule: unknown, value: string, callback: (err?: Error) => void) => {
+  if (value !== resetPwdForm.password) {
+    callback(new Error('两次输入的密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+const resetPwdRules: FormRules = {
+  password: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, max: 32, message: '密码长度为 6-32 位', trigger: 'blur' },
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入新密码', trigger: 'blur' },
+    { validator: validateResetConfirmPassword, trigger: 'blur' },
+  ],
+}
+
+function resetResetPwdForm() {
+  resetPwdTarget.value = null
+  resetPwdForm.password = ''
+  resetPwdForm.confirmPassword = ''
+  resetPwdFormRef.value?.clearValidate()
+}
 
 // 演示数据
 const mockData = [
@@ -259,11 +444,17 @@ function handleAdd() {
   formData.phonenumber = ''
   formData.email = ''
   formData.status = '0'
+  formData.roleIds = []
+  formData.password = ''
+  formData.confirmPassword = ''
   dialogVisible.value = true
 }
 
 function handleEdit(row: any) {
-  Object.assign(formData, row, { deptId: row.dept?.deptId })
+  Object.assign(formData, row, {
+    deptId: row.deptId ?? row.dept?.deptId,
+    roleIds: row.roleIds || [],
+  })
   dialogVisible.value = true
 }
 
@@ -277,13 +468,14 @@ async function handleSubmit() {
         await updateUser(formData)
         ElMessage.success('修改成功')
       } else {
-        await addUser(formData)
+        const { confirmPassword: _, ...payload } = formData
+        await addUser(payload)
         ElMessage.success('新增成功')
       }
       dialogVisible.value = false
       fetchData()
     } catch {
-      ElMessage.error('操作失败')
+      // 错误信息由请求拦截器展示
     } finally {
       submitLoading.value = false
     }
@@ -322,153 +514,64 @@ function handleStatusChange(row: any, val: boolean) {
   ElMessage.success(`${row.userName} ${val ? '已启用' : '已停用'}`)
 }
 
-async function handleResetPwd(row: any) {
+function handleResetPwd(row: any) {
+  resetPwdTarget.value = { userId: row.userId, userName: row.userName }
+  resetPwdForm.password = ''
+  resetPwdForm.confirmPassword = ''
+  resetPwdVisible.value = true
+}
+
+async function submitResetPwd() {
+  if (!resetPwdFormRef.value || !resetPwdTarget.value) return
   try {
-    await ElMessageBox.confirm(`确认重置「${row.userName}」的密码？`, '重置密码', {
-      type: 'warning',
-      confirmButtonText: '确定',
-    })
-    await resetPassword(row.userId)
-    ElMessage.success('密码重置成功')
+    await resetPwdFormRef.value.validate()
   } catch {
-    // cancelled
+    return
   }
+  resetPwdLoading.value = true
+  try {
+    await resetPassword(resetPwdTarget.value.userId, resetPwdForm.password)
+    ElMessage.success('密码重置成功')
+    resetPwdVisible.value = false
+  } catch {
+    // 错误由请求拦截器提示
+  } finally {
+    resetPwdLoading.value = false
+  }
+}
+
+function buildDeptTree(data: any[]): any[] {
+  if (!data?.length) return []
+  return data.map((d) => ({
+    id: d.deptId ?? d.id,
+    label: d.deptName ?? d.label,
+    children: d.children?.length ? buildDeptTree(d.children) : [],
+  }))
 }
 
 async function fetchDeptTree() {
   try {
     const res = await getDeptList()
-    console.log('[部门树] API响应:', res)
-    deptTree.value = (res as any) || []
+    const list = Array.isArray(res) ? res : (res as any)?.data ?? []
+    deptTree.value = buildDeptTree(list)
   } catch (error) {
     console.error('[部门树] API请求失败:', error)
     deptTree.value = []
   }
 }
 
-onMounted(() => {
-  fetchData()
-  fetchDeptTree()
-})
-</script>
-
-<style lang="scss" scoped>
-.page-container {
-  padding-left: 0;
-}
-
-.table-container :deep(.el-table) {
-  --el-table-bg-color: transparent;
-  --el-table-tr-bg-color: transparent;
-  --el-table-header-bg-color: rgba(255, 255, 255, 0.03);
-  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.04);
-  --el-table-border-color: rgba(255, 255, 255, 0.06);
-  --el-table-text-color: rgba(255, 255, 255, 0.82);
-  --el-table-header-text-color: rgba(255, 255, 255, 0.55);
-  --el-table-striped-row-bg-color: rgba(255, 255, 255, 0.02);
-}
-
-.table-container :deep(.el-table__inner-wrapper),
-.table-container :deep(.el-table__header-wrapper),
-.table-container :deep(.el-table__body-wrapper) {
-  background: transparent;
-}
-
-.table-container :deep(.el-pagination) {
-  --el-pagination-bg-color: transparent;
-  --el-pagination-text-color: rgba(255, 255, 255, 0.55);
-  --el-pagination-button-bg-color: rgba(255, 255, 255, 0.03);
-  --el-pagination-hover-color: #4f7cff;
-}
-
-.table-container :deep(.el-switch__label) {
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.table-container :deep(.el-switch__label.is-active) {
-  color: rgba(255, 255, 255, 0.82);
-}
-
-:deep(.el-dialog) {
-  background: linear-gradient(180deg, rgba(10, 16, 28, 0.96), rgba(11, 18, 32, 0.98));
-  border: 1px solid rgba(80, 120, 255, 0.12);
-  border-radius: 16px;
-  box-shadow: 0 0 0 1px rgba(80, 120, 255, 0.06), 0 10px 32px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(16px);
-}
-
-:deep(.el-dialog__title) {
-  color: rgba(255, 255, 255, 0.86);
-}
-
-:deep(.el-dialog__headerbtn .el-dialog__close) {
-  color: rgba(255, 255, 255, 0.62);
-}
-
-:deep(.el-form-item__label) {
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.page-container :deep(.el-input__wrapper),
-.page-container :deep(.el-select__wrapper),
-.page-container :deep(.el-range-editor.el-input__wrapper),
-.page-container :deep(.el-date-editor.el-input__wrapper),
-.page-container :deep(.el-tree-select__wrapper) {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none;
-}
-
-.page-container :deep(.el-input__inner) {
-  color: rgba(255, 255, 255, 0.86);
-}
-
-.page-container :deep(.el-input__inner::placeholder) {
-  color: rgba(255, 255, 255, 0.42);
-}
-
-.page-container :deep(.el-select__placeholder) {
-  color: rgba(255, 255, 255, 0.42);
-}
-
-.page-container :deep(.el-button--primary) {
-  background: linear-gradient(90deg, #4f7cff 0%, #3d67e6 100%);
-  border-color: rgba(79, 124, 255, 0.28);
-  color: #ffffff;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
-}
-
-.page-container :deep(.el-button--primary:hover) {
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
-}
-
-.page-container :deep(.el-button:not(.el-button--primary)) {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.78);
-}
-
-.page-container :deep(.el-button:not(.el-button--primary):hover) {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.table-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-base);
-
-  .toolbar-left {
-    display: flex;
-    gap: var(--spacing-sm);
+async function fetchRoles() {
+  try {
+    roleOptions.value = ((await getRoleList({ status: '0' })) as RoleData[]) || []
+  } catch {
+    roleOptions.value = []
   }
 }
 
-.table-pagination {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: var(--spacing-base);
-}
-</style>
+onMounted(() => {
+  fetchData()
+  fetchDeptTree()
+  fetchRoles()
+})
+</script>
+

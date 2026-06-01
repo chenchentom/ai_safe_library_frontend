@@ -16,6 +16,8 @@ export interface UserData {
   phonenumber?: string
   email?: string
   status: string
+  /** 仅新增时提交 */
+  password?: string
 }
 
 export function getUserList(params: UserQueryParams) {
@@ -34,6 +36,17 @@ export function deleteUser(ids: number[]) {
   return del('/system/user/' + ids.join(','))
 }
 
-export function resetPassword(userId: number) {
-  return put('/system/user/resetPwd', { userId } as unknown as Record<string, unknown>)
+export function resetPassword(userId: number, password: string) {
+  return put('/system/user/resetPwd', { userId, password } as unknown as Record<string, unknown>)
+}
+
+export function checkUserUnique(params: {
+  userName?: string
+  nickName?: string
+  userId?: number
+}) {
+  return get<{ userNameUnique?: boolean; nickNameUnique?: boolean }>(
+    '/system/user/checkUnique',
+    params as unknown as Record<string, unknown>
+  )
 }

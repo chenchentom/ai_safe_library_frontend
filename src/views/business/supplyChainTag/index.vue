@@ -116,6 +116,7 @@
             v-model:current-page="pagination.page"
             v-model:page-size="pagination.size"
             :total="pagination.total"
+            popper-class="app-pagination-popper"
             :page-sizes="[12, 24, 48]"
             layout="total, sizes, prev, pager, next, jumper"
             background
