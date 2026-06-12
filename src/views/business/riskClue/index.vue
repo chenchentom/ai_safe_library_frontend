@@ -1212,7 +1212,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed, type Component } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, onDeactivated, onBeforeUnmount, onActivated, computed, type Component } from 'vue'
+import { forceDismissOverlays, resetBusinessPageShell } from '@/utils/cleanupOverlays'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Close,
@@ -2275,6 +2276,7 @@ async function submitBatchReview() {
       batchIsWarehouse: batchReviewForm.isWarehouse,
     }
     const result = (await batchReviewClues(payload)) as unknown as BatchReviewResult
+    const total = Number(result?.total ?? batchReviewPendingCount.value ?? 0)
     const success = Number(result?.success ?? 0)
     const failed = Number(result?.failed ?? 0)
     batchReviewDialogVisible.value = false
@@ -2282,9 +2284,11 @@ async function submitBatchReview() {
       const detail = result.failures?.length
         ? `\n部分失败：${result.failures.map((item) => `「${item.eventName}」${item.reason}`).join('；')}`
         : ''
-      ElMessage.warning(`批量审核完成：成功 ${success} 条，失败 ${failed} 条${detail}`)
+      ElMessage.warning(
+        `批量审核完成：成功 ${success} 条，失败 ${failed} 条（待审核共 ${total} 条）${detail}`,
+      )
     } else {
-      ElMessage.success(`批量审核完成，共处理 ${success} 条线索`)
+      ElMessage.success(`批量审核完成，成功 ${success} 条（待审核共 ${total} 条）`)
     }
     drawerVisible.value = false
     currentClue.value = null
@@ -2447,11 +2451,25 @@ function handleReset() {
   fetchData()
 }
 
+function resetPageState() {
+  resetBusinessPageShell({
+    loading,
+    drawerVisible,
+    dialogVisible: createDialogVisible,
+  })
+  currentClue.value = null
+  stopResize()
+}
+
 onMounted(() => {
   fetchData()
   fetchStats()
   fetchTagTree()
   document.addEventListener('keydown', handleKeydown)
+})
+
+onActivated(() => {
+  forceDismissOverlays()
 })
 
 defineExpose({
@@ -2461,9 +2479,10 @@ defineExpose({
   },
 })
 
-onUnmounted(() => {
+onDeactivated(resetPageState)
+onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown)
-  stopResize()
+  resetPageState()
 })
 </script>
 

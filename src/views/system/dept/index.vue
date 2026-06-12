@@ -29,7 +29,7 @@
         <el-table-column prop="createTime" label="创建时间" width="170" />
         <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" :icon="Plus" @click="handleAdd(row.deptId)">新增</el-button>
+            <el-button link type="primary" size="small" :icon="Plus" @click="handleAdd(normalizeDeptId(row.deptId))">新增</el-button>
             <el-button link type="primary" size="small" :icon="Edit" @click="handleEdit(row)">编辑</el-button>
             <el-button link type="danger" size="small" :icon="Delete" @click="handleDelete(row)">删除</el-button>
           </template>
@@ -97,6 +97,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { openDialogVisible } from '@/utils/cleanupOverlays'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { getDeptList, addDept, updateDept, deleteDept } from '@/api/dept'
@@ -111,16 +112,26 @@ const deptTree = ref<any[]>([])
 const roleOptions = ref<RoleData[]>([])
 
 const formData = reactive({
-  deptId: 0,
-  parentId: undefined as number | undefined,
+  deptId: '' as string,
+  parentId: undefined as string | undefined,
   deptName: '',
   orderNum: 0,
   leader: '',
   phone: '',
   email: '',
   status: '0',
-  roleIds: [] as number[],
+  roleIds: [] as Array<number | string>,
 })
+
+function normalizeDeptId(id: unknown): string {
+  if (id === null || id === undefined || id === '') return ''
+  return String(id)
+}
+
+function normalizeParentId(id: unknown): string | undefined {
+  const normalized = normalizeDeptId(id)
+  return normalized && normalized !== '0' ? normalized : undefined
+}
 
 const formRules: FormRules = {
   deptName: [{ required: true, message: '请输入部门名称', trigger: 'blur' }],
@@ -129,22 +140,10 @@ const formRules: FormRules = {
 
 const dialogTitle = computed(() => (formData.deptId ? '编辑部门' : '新增部门'))
 
-const mockData = [
-  { deptId: 1, deptName: 'AI 安全平台', orderNum: 1, status: '0', leader: '张总', phone: '13800000001', createTime: '2026-01-01 00:00:00', children: [
-    { deptId: 2, deptName: '安全管理部', orderNum: 1, status: '0', leader: '李经理', phone: '13800000002', createTime: '2026-01-01 00:00:00', children: [
-      { deptId: 6, deptName: '安全响应组', orderNum: 1, status: '0', leader: '王组长', phone: '13800000006', createTime: '2026-01-15 00:00:00' },
-      { deptId: 7, deptName: '威胁分析组', orderNum: 2, status: '0', leader: '陈组长', phone: '13800000007', createTime: '2026-01-15 00:00:00' },
-    ]},
-    { deptId: 3, deptName: '技术部', orderNum: 2, status: '0', leader: '刘经理', phone: '13800000003', createTime: '2026-01-01 00:00:00' },
-    { deptId: 4, deptName: '运营部', orderNum: 3, status: '0', leader: '赵经理', phone: '13800000004', createTime: '2026-02-01 00:00:00' },
-    { deptId: 5, deptName: '产品部', orderNum: 4, status: '1', leader: '周经理', phone: '13800000005', createTime: '2026-03-01 00:00:00' },
-  ]},
-]
-
 function buildDeptTree(data: any[]): any[] {
   if (!data || data.length === 0) return []
   return data.map((d) => ({
-    id: d.deptId,
+    id: normalizeDeptId(d.deptId),
     label: d.deptName,
     children: d.children ? buildDeptTree(d.children) : [],
   }))
@@ -153,21 +152,20 @@ function buildDeptTree(data: any[]): any[] {
 async function fetchData() {
   loading.value = true
   try {
-    try {
-      const res = await getDeptList()
-      tableData.value = (res as any).data || (res as any) || []
-      deptTree.value = buildDeptTree(tableData.value)
-    } catch {
-      tableData.value = mockData
-      deptTree.value = buildDeptTree(mockData)
-    }
+    const res = await getDeptList()
+    tableData.value = (res as any).data || (res as any) || []
+    deptTree.value = buildDeptTree(tableData.value)
+  } catch (error) {
+    console.error('[部门列表] API请求失败:', error)
+    tableData.value = []
+    deptTree.value = []
   } finally {
     loading.value = false
   }
 }
 
-function handleAdd(parentId?: number) {
-  formData.deptId = 0
+function handleAdd(parentId?: string) {
+  formData.deptId = ''
   formData.parentId = parentId || undefined
   formData.deptName = ''
   formData.orderNum = 0
@@ -176,12 +174,22 @@ function handleAdd(parentId?: number) {
   formData.email = ''
   formData.status = '0'
   formData.roleIds = []
-  dialogVisible.value = true
+  openDialogVisible(dialogVisible)
 }
 
 function handleEdit(row: any) {
-  Object.assign(formData, row, { roleIds: row.roleIds || [] })
-  dialogVisible.value = true
+  Object.assign(formData, {
+    deptId: normalizeDeptId(row.deptId),
+    parentId: normalizeParentId(row.parentId),
+    deptName: row.deptName,
+    orderNum: row.orderNum,
+    leader: row.leader,
+    phone: row.phone,
+    email: row.email,
+    status: row.status,
+    roleIds: row.roleIds || [],
+  })
+  openDialogVisible(dialogVisible)
 }
 
 async function handleSubmit() {
@@ -191,10 +199,22 @@ async function handleSubmit() {
     submitLoading.value = true
     try {
       if (formData.deptId) {
-        await updateDept(formData)
+        const payload = {
+          deptId: formData.deptId,
+          parentId: formData.parentId,
+          deptName: formData.deptName,
+          orderNum: formData.orderNum,
+          leader: formData.leader,
+          phone: formData.phone,
+          email: formData.email,
+          status: formData.status,
+          roleIds: formData.roleIds,
+        }
+        await updateDept(payload)
         ElMessage.success('修改成功')
       } else {
-        await addDept(formData)
+        const { deptId: _, ...payload } = formData
+        await addDept(payload)
         ElMessage.success('新增成功')
       }
       dialogVisible.value = false
@@ -208,16 +228,25 @@ async function handleSubmit() {
 }
 
 async function handleDelete(row: any) {
+  const deptId = normalizeDeptId(row.deptId)
+  if (!deptId) {
+    ElMessage.error('部门 ID 无效，无法删除')
+    return
+  }
   try {
     await ElMessageBox.confirm(`确认删除部门「${row.deptName}」？`, '删除确认', {
       type: 'warning',
       confirmButtonText: '删除',
     })
-    await deleteDept(row.deptId)
+  } catch {
+    return
+  }
+  try {
+    await deleteDept(deptId)
     ElMessage.success('删除成功')
     fetchData()
   } catch {
-    // cancelled
+    // 错误信息由请求拦截器展示
   }
 }
 

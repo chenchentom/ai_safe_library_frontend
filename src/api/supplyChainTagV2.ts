@@ -1,4 +1,30 @@
 import { get, post, put, del } from './index'
+import service from './index'
+
+function parseFilenameFromDisposition(disposition?: string): string | null {
+  const utf8Match = disposition?.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1])
+  const plainMatch = disposition?.match(/filename="?([^";]+)"?/i)
+  return plainMatch?.[1] ?? null
+}
+
+async function downloadExcelFile(url: string, defaultFilename: string) {
+  const response = await service.get(url, { responseType: 'blob' })
+  const blob = response.data as Blob
+  const contentType = String(response.headers['content-type'] || '')
+  if (contentType.includes('application/json')) {
+    const text = await blob.text()
+    const json = JSON.parse(text) as { msg?: string }
+    throw new Error(json.msg || '导出失败')
+  }
+  const filename = parseFilenameFromDisposition(response.headers['content-disposition']) || defaultFilename
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(objectUrl)
+}
 
 /** 标签 ID（前端统一用 string，避免大整数精度问题） */
 export type SupplyChainTagId = string
@@ -72,4 +98,9 @@ export function searchSupplyChainTagV2(keyword: string) {
 
 export function updateSupplyChainTagV2Sort(id: SupplyChainTagId, sortOrder: number) {
   return put(`/biz/supply-chain-tag-v2/${id}/sort?sortOrder=${sortOrder}`)
+}
+
+/** 导出供应链标签 Excel */
+export function exportSupplyChainTagV2() {
+  return downloadExcelFile('/biz/supply-chain-tag-v2/export', '供应链标签.xlsx')
 }

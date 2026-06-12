@@ -101,6 +101,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { openDialogVisible } from '@/utils/cleanupOverlays'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Search, Refresh, Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { getRoleList, getRole, addRole, updateRole, deleteRole, type RoleData } from '@/api/role'
@@ -179,14 +180,22 @@ function handleAdd() {
     status: '0',
     remark: '',
   })
-  dialogVisible.value = true
+  openDialogVisible(dialogVisible)
   nextTick(() => menuTreeRef.value?.setCheckedKeys([]))
 }
 
 async function handleEdit(row: RoleData) {
   const detail = await getRole(row.roleId!)
-  Object.assign(formData, detail)
-  dialogVisible.value = true
+  Object.assign(formData, {
+    roleId: detail.roleId,
+    roleName: detail.roleName,
+    roleKey: detail.roleKey,
+    roleSort: detail.roleSort,
+    dataScope: detail.dataScope,
+    status: detail.status,
+    remark: detail.remark,
+  })
+  openDialogVisible(dialogVisible)
   await nextTick()
   menuTreeRef.value?.setCheckedKeys(detail.menuIds || [])
 }

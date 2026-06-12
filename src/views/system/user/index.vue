@@ -220,9 +220,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { openDialogVisible } from '@/utils/cleanupOverlays'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Search, Refresh, Plus, Delete, RefreshRight, Edit } from '@element-plus/icons-vue'
-import { getUserList, addUser, updateUser, deleteUser, resetPassword, checkUserUnique } from '@/api/user'
+import { getUserList, getUser, addUser, updateUser, deleteUser, resetPassword, checkUserUnique } from '@/api/user'
 import { getDeptList } from '@/api/dept'
 import { getRoleList, type RoleData } from '@/api/role'
 
@@ -233,8 +234,8 @@ const dialogVisible = ref(false)
 const resetPwdVisible = ref(false)
 const formRef = ref<FormInstance>()
 const resetPwdFormRef = ref<FormInstance>()
-const resetPwdTarget = ref<{ userId: number; userName: string } | null>(null)
-const selectedIds = ref<number[]>([])
+const resetPwdTarget = ref<{ userId: string; userName: string } | null>(null)
+const selectedIds = ref<string[]>([])
 const tableData = ref<any[]>([])
 const deptTree = ref<any[]>([])
 const roleOptions = ref<RoleData[]>([])
@@ -257,17 +258,53 @@ const pagination = reactive({
 })
 
 const formData = reactive({
-  userId: 0,
+  userId: '' as string,
   userName: '',
   nickName: '',
-  deptId: undefined as number | undefined,
+  deptId: undefined as number | string | undefined,
   phonenumber: '',
   email: '',
   status: '0',
-  roleIds: [] as number[],
+  roleIds: [] as Array<number | string>,
   password: '',
   confirmPassword: '',
 })
+
+function normalizeUserId(id: unknown): string {
+  if (id === null || id === undefined || id === '') return ''
+  return String(id)
+}
+
+/** 编辑时记录原始用户名/昵称，仅改角色等字段时跳过唯一性校验 */
+const editSnapshot = reactive({
+  userId: '',
+  userName: '',
+  nickName: '',
+})
+
+function normalizeRoleIds(ids: unknown): number[] {
+  if (!Array.isArray(ids)) return []
+  return ids.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
+}
+
+function fillUserForm(source: Record<string, unknown>) {
+  formData.userId = normalizeUserId(source.userId)
+  formData.userName = String(source.userName ?? '')
+  formData.nickName = String(source.nickName ?? '')
+  formData.deptId = source.deptId != null ? String(source.deptId) : source.dept && typeof source.dept === 'object'
+    ? String((source.dept as Record<string, unknown>).deptId ?? '')
+    : undefined
+  if (formData.deptId === '') formData.deptId = undefined
+  formData.phonenumber = String(source.phonenumber ?? '')
+  formData.email = String(source.email ?? '')
+  formData.status = String(source.status ?? '0')
+  formData.roleIds = normalizeRoleIds(source.roleIds)
+  formData.password = ''
+  formData.confirmPassword = ''
+  editSnapshot.userId = formData.userId
+  editSnapshot.userName = formData.userName
+  editSnapshot.nickName = formData.nickName
+}
 
 const validateConfirmPassword = (_rule: unknown, value: string, callback: (err?: Error) => void) => {
   if (formData.password && value !== formData.password) {
@@ -283,10 +320,14 @@ const validateUserNameUnique = async (_rule: unknown, value: string, callback: (
     callback()
     return
   }
+  if (editSnapshot.userId && trimmed === editSnapshot.userName) {
+    callback()
+    return
+  }
   try {
     const res = await checkUserUnique({
       userName: trimmed,
-      userId: formData.userId || undefined,
+      userId: editSnapshot.userId || undefined,
     })
     if (res.userNameUnique === false) {
       callback(new Error('用户名已存在'))
@@ -304,10 +345,14 @@ const validateNickNameUnique = async (_rule: unknown, value: string, callback: (
     callback()
     return
   }
+  if (editSnapshot.userId && trimmed === editSnapshot.nickName) {
+    callback()
+    return
+  }
   try {
     const res = await checkUserUnique({
       nickName: trimmed,
-      userId: formData.userId || undefined,
+      userId: editSnapshot.userId || undefined,
     })
     if (res.nickNameUnique === false) {
       callback(new Error('昵称已存在'))
@@ -383,36 +428,26 @@ function resetResetPwdForm() {
   resetPwdFormRef.value?.clearValidate()
 }
 
-// 演示数据
-const mockData = [
-  { userId: 1, userName: 'admin', nickName: '系统管理员', dept: { deptName: '安全管理部' }, phonenumber: '13800000001', status: '0', createTime: '2026-01-15 09:30:00' },
-  { userId: 2, userName: 'zhangsan', nickName: '张三', dept: { deptName: '技术部' }, phonenumber: '13800000002', status: '0', createTime: '2026-02-20 14:22:00' },
-  { userId: 3, userName: 'lisi', nickName: '李四', dept: { deptName: '运营部' }, phonenumber: '13800000003', status: '0', createTime: '2026-03-10 10:15:00' },
-  { userId: 4, userName: 'wangwu', nickName: '王五', dept: { deptName: '产品部' }, phonenumber: '13800000004', status: '1', createTime: '2026-04-05 08:45:00' },
-  { userId: 5, userName: 'zhaoliu', nickName: '赵六', dept: { deptName: '安全响应组' }, phonenumber: '13800000005', status: '0', createTime: '2026-05-01 16:30:00' },
-]
-
 async function fetchData() {
   loading.value = true
   try {
-    // 尝试真实 API
-    try {
-      const res = await getUserList({
-        ...searchForm,
-        pageNum: pagination.pageNum,
-        pageSize: pagination.pageSize,
-      })
-      console.log('[用户列表] API响应:', res)
-      console.log('[用户列表] res.rows:', (res as any).rows)
-      console.log('[用户列表] res.total:', (res as any).total)
-      tableData.value = (res as any).rows || (res as any).data || []
-      pagination.total = (res as any).total || 0
-    } catch (error) {
-      console.error('[用户列表] API请求失败:', error)
-      // API 不可用时使用演示数据
-      tableData.value = mockData
-      pagination.total = mockData.length
-    }
+    const res = await getUserList({
+      ...searchForm,
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
+    })
+    tableData.value = ((res as any).rows || (res as any).data || []).map((row: Record<string, unknown>) => ({
+      ...row,
+      userId: normalizeUserId(row.userId),
+      deptId: row.deptId != null ? String(row.deptId) : row.dept && typeof row.dept === 'object'
+        ? String((row.dept as Record<string, unknown>).deptId ?? '')
+        : row.deptId,
+    }))
+    pagination.total = (res as any).total || 0
+  } catch (error) {
+    console.error('[用户列表] API请求失败:', error)
+    tableData.value = []
+    pagination.total = 0
   } finally {
     loading.value = false
   }
@@ -433,11 +468,14 @@ function handleReset() {
 }
 
 function handleSelectionChange(rows: any[]) {
-  selectedIds.value = rows.map((r) => r.userId)
+  selectedIds.value = rows.map((r) => normalizeUserId(r.userId))
 }
 
 function handleAdd() {
-  formData.userId = 0
+  formData.userId = ''
+  editSnapshot.userId = ''
+  editSnapshot.userName = ''
+  editSnapshot.nickName = ''
   formData.userName = ''
   formData.nickName = ''
   formData.deptId = undefined
@@ -447,15 +485,22 @@ function handleAdd() {
   formData.roleIds = []
   formData.password = ''
   formData.confirmPassword = ''
-  dialogVisible.value = true
+  openDialogVisible(dialogVisible)
 }
 
-function handleEdit(row: any) {
-  Object.assign(formData, row, {
-    deptId: row.deptId ?? row.dept?.deptId,
-    roleIds: row.roleIds || [],
-  })
-  dialogVisible.value = true
+async function handleEdit(row: any) {
+  const userId = normalizeUserId(row.userId)
+  if (userId) {
+    try {
+      const detail = (await getUser(userId)) as Record<string, unknown>
+      fillUserForm(detail)
+    } catch {
+      fillUserForm(row)
+    }
+  } else {
+    fillUserForm(row)
+  }
+  openDialogVisible(dialogVisible)
 }
 
 async function handleSubmit() {
@@ -465,10 +510,19 @@ async function handleSubmit() {
     submitLoading.value = true
     try {
       if (formData.userId) {
-        await updateUser(formData)
+        await updateUser({
+          userId: formData.userId,
+          userName: formData.userName,
+          nickName: formData.nickName,
+          deptId: formData.deptId,
+          phonenumber: formData.phonenumber,
+          email: formData.email,
+          status: formData.status,
+          roleIds: formData.roleIds,
+        })
         ElMessage.success('修改成功')
       } else {
-        const { confirmPassword: _, ...payload } = formData
+        const { confirmPassword: _, userId: __, ...payload } = formData
         await addUser(payload)
         ElMessage.success('新增成功')
       }
@@ -483,39 +537,63 @@ async function handleSubmit() {
 }
 
 async function handleDelete(row: any) {
+  const userId = normalizeUserId(row.userId)
+  if (!userId) {
+    ElMessage.error('用户 ID 无效，无法删除')
+    return
+  }
   try {
     await ElMessageBox.confirm(`确认删除用户「${row.userName}」？`, '删除确认', {
       type: 'warning',
       confirmButtonText: '删除',
     })
-    await deleteUser([row.userId])
+  } catch {
+    return
+  }
+  try {
+    await deleteUser([userId])
     ElMessage.success('删除成功')
     fetchData()
   } catch {
-    // cancelled
+    // 错误信息由请求拦截器展示
   }
 }
 
 async function handleBatchDelete() {
+  if (selectedIds.value.length === 0) return
   try {
     await ElMessageBox.confirm(`确认删除选中的 ${selectedIds.value.length} 个用户？`, '批量删除', {
       type: 'warning',
       confirmButtonText: '删除',
     })
+  } catch {
+    return
+  }
+  try {
     await deleteUser(selectedIds.value)
     ElMessage.success('删除成功')
+    selectedIds.value = []
     fetchData()
   } catch {
-    // cancelled
+    // 错误信息由请求拦截器展示
   }
 }
 
-function handleStatusChange(row: any, val: boolean) {
-  ElMessage.success(`${row.userName} ${val ? '已启用' : '已停用'}`)
+async function handleStatusChange(row: any, val: boolean) {
+  const newStatus = val ? '0' : '1'
+  try {
+    await updateUser({ userId: normalizeUserId(row.userId), status: newStatus } as any)
+    ElMessage.success(`${row.userName} ${val ? '已启用' : '已停用'}`)
+    fetchData()
+  } catch {
+    // 错误信息由请求拦截器展示
+    // 回滚前端状态
+    row.status = val ? '1' : '0'
+  }
 }
 
 function handleResetPwd(row: any) {
-  resetPwdTarget.value = { userId: row.userId, userName: row.userName }
+  resetPwdTarget.value = { userId: normalizeUserId(row.userId), userName: row.userName }
   resetPwdForm.password = ''
   resetPwdForm.confirmPassword = ''
   resetPwdVisible.value = true
@@ -543,7 +621,7 @@ async function submitResetPwd() {
 function buildDeptTree(data: any[]): any[] {
   if (!data?.length) return []
   return data.map((d) => ({
-    id: d.deptId ?? d.id,
+    id: d.deptId != null ? String(d.deptId) : d.id != null ? String(d.id) : '',
     label: d.deptName ?? d.label,
     children: d.children?.length ? buildDeptTree(d.children) : [],
   }))
