@@ -1,4 +1,30 @@
 import { get, post, put, del } from './index'
+import service from './index'
+
+function parseFilenameFromDisposition(disposition?: string): string | null {
+  const utf8Match = disposition?.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1])
+  const plainMatch = disposition?.match(/filename="?([^";]+)"?/i)
+  return plainMatch?.[1] ?? null
+}
+
+async function downloadExcelFile(url: string, params: Record<string, unknown>, defaultFilename: string) {
+  const response = await service.get(url, { params, responseType: 'blob' })
+  const blob = response.data as Blob
+  const contentType = String(response.headers['content-type'] || '')
+  if (contentType.includes('application/json')) {
+    const text = await blob.text()
+    const json = JSON.parse(text) as { msg?: string }
+    throw new Error(json.msg || '导出失败')
+  }
+  const filename = parseFilenameFromDisposition(response.headers['content-disposition']) || defaultFilename
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(objectUrl)
+}
 
 /** 标签 ID（雪花算法，前端必须用 string 避免精度丢失） */
 export type TagId = string
@@ -79,4 +105,10 @@ export function searchTag(keyword: string) {
 // 更新排序（sortOrder 以查询参数传递，后端 @RequestParam 接收）
 export function updateTagSort(id: TagId, sortOrder: number) {
   return put(`/system/tag/${id}/sort?sortOrder=${sortOrder}`)
+}
+
+/** 导出标签 Excel */
+export function exportTagCategory(module = 'risk_clue') {
+  const defaultName = module === 'supply_chain' ? '供应链标签.xlsx' : '风险线索标签.xlsx'
+  return downloadExcelFile('/system/tag/export', { module }, defaultName)
 }

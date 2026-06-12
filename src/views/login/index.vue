@@ -70,10 +70,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { forceDismissOverlays } from '@/utils/cleanupOverlays'
 
 const router = useRouter()
 const route = useRoute()
@@ -90,6 +91,14 @@ const loginForm = reactive({
 function handleRequestAccess() {
   ElMessage.info('请联系管理员申请权限升级')
 }
+
+onMounted(() => {
+  forceDismissOverlays()
+  // 清除损坏的登录态，避免有 token 却无菜单时被路由踢走导致“登录页点不了”
+  if (localStorage.getItem('token') && !authStore.hasValidSession()) {
+    authStore.clearSession()
+  }
+})
 
 async function handleLogin() {
   if (loading.value) return
@@ -167,6 +176,7 @@ async function handleLogin() {
   background-size: 40px 40px, 120px 120px;
   transform: rotate(-15deg);
   z-index: 1;
+  pointer-events: none;
 }
 
 .visual-panel::after {
@@ -179,6 +189,7 @@ async function handleLogin() {
   background: radial-gradient(circle, rgba(0, 210, 255, 0.05) 0%, transparent 70%);
   filter: blur(60px);
   z-index: 2;
+  pointer-events: none;
 }
 
 .brand-header {
@@ -265,6 +276,7 @@ async function handleLogin() {
   justify-content: center;
   padding: 0 80px;
   position: relative;
+  z-index: 10;
 }
 
 .form-container {

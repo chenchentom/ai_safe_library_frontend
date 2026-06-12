@@ -15,11 +15,8 @@ service.interceptors.request.use(
   (config) => {
     // 从 localStorage 获取 token
     const token = localStorage.getItem('token')
-    console.log('[api] 请求拦截器 - URL:', config.url)
-    console.log('[api] 请求拦截器 - Token:', token)
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
-      console.log('[api] 请求拦截器 - 添加 Authorization 头:', config.headers.Authorization)
     }
     return config
   },

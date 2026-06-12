@@ -80,6 +80,9 @@ export interface SecurityEventSearchParams {
   sourceWebsite?: string
   operatingEntityHuman?: string
   productsComponentsServices?: string
+  submissionChannel?: string
+  submitUserName?: string
+  submitOrgName?: string
   auditUserName?: string
   auditStartTime?: string
   auditEndTime?: string

@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { forceDismissOverlays, scheduleDismissOverlays } from '@/utils/cleanupOverlays'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -68,6 +69,18 @@ const protectedRoutes: RouteRecordRaw = {
           name: 'SystemRole',
           component: () => import('@/views/system/role/index.vue'),
           meta: { title: '角色管理', icon: 'UserFilled', requiresAuth: true, keepAlive: true, permission: 'system:role:list' },
+        },
+        {
+          path: 'oper-log',
+          name: 'SystemOperLog',
+          component: () => import('@/views/system/operLog/index.vue'),
+          meta: { title: '操作日志', icon: 'Document', requiresAuth: true, keepAlive: true, permission: 'system:oper-log:list' },
+        },
+        {
+          path: 'login-info',
+          name: 'SystemLoginInfo',
+          component: () => import('@/views/system/loginInfo/index.vue'),
+          meta: { title: '登录日志', icon: 'Key', requiresAuth: true, keepAlive: true, permission: 'system:login-info:list' },
         },
         {
           path: 'tag',
@@ -145,33 +158,54 @@ const router = createRouter({
 router.beforeEach(async (to, _from, next) => {
   document.title = `${to.meta.title || 'AI 安全平台'} - AI 安全事件管理平台`
 
+  if (to.path === '/login' || to.path === '/403') {
+    forceDismissOverlays()
+  }
+
   const token = localStorage.getItem('token')
+  const { useAuthStore } = await import('@/stores/auth')
+  const authStore = useAuthStore()
 
   if (to.meta.requiresAuth) {
     if (!token) {
       next({ path: '/login', query: { redirect: to.fullPath } })
       return
     }
-    const { useAuthStore } = await import('@/stores/auth')
-    const authStore = useAuthStore()
-    if (!authStore.userInfo) {
-      try {
-        await authStore.fetchUserInfo()
-      } catch {
-        next({ path: '/login', query: { redirect: to.fullPath } })
-        return
-      }
+    try {
+      await authStore.ensureUserInfo()
+    } catch {
+      authStore.clearSession()
+      next({ path: '/login', query: { redirect: to.fullPath } })
+      return
     }
     if (!authStore.canAccessPath(to.path)) {
       next({ path: '/403' })
       return
     }
     next()
-  } else if (to.path === '/login' && token) {
-    next('/dashboard')
-  } else {
-    next()
+    return
   }
+
+  if (to.path === '/login' && token) {
+    try {
+      await authStore.ensureUserInfo()
+      if (authStore.canAccessPath('/dashboard')) {
+        next('/dashboard')
+        return
+      }
+    } catch {
+      // token 无效，留在登录页
+    }
+    authStore.clearSession()
+    next()
+    return
+  }
+
+  next()
+})
+
+router.afterEach(() => {
+  scheduleDismissOverlays()
 })
 
 export default router

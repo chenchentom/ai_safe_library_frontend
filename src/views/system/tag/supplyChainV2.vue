@@ -3,8 +3,7 @@
     <div class="tag-toolbar">
       <div class="toolbar-left">
         <el-button type="primary" :icon="Plus" @click="handleAdd()">新增标签</el-button>
-        <el-button :icon="Upload" @click="importVisible = true">导入</el-button>
-        <el-button :icon="Download" @click="handleExport">导出</el-button>
+        <el-button :icon="Download" :loading="exportLoading" @click="handleExport">导出</el-button>
       </div>
       <div class="toolbar-right">
         <el-button :icon="Fold" @click="expandAll">展开全部</el-button>
@@ -161,29 +160,19 @@
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
-
-    <el-dialog v-model="importVisible" title="导入 Excel" width="460px" :close-on-click-modal="false">
-      <el-upload drag action="#" :auto-upload="false" :on-change="handleFileChange" accept=".xlsx,.xls">
-        <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-        <div class="el-upload__text">拖拽 Excel 文件到此处 或 <em>点击上传</em></div>
-      </el-upload>
-      <template #footer>
-        <el-button @click="importVisible = false">取消</el-button>
-        <el-button type="primary" @click="importVisible = false">确定导入</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
-import { Plus, Edit, Delete, Search, Upload, Download, Fold, Expand, UploadFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { Plus, Edit, Delete, Search, Download, Fold, Expand } from '@element-plus/icons-vue'
 import {
   getSupplyChainTagV2Tree,
   addSupplyChainTagV2,
   updateSupplyChainTagV2,
   deleteSupplyChainTagV2,
+  exportSupplyChainTagV2,
   type SupplyChainTagV2Node,
   type SupplyChainTagV2Form,
   type SupplyChainTagId,
@@ -193,8 +182,8 @@ const treeRef = ref<{ filter: (v: string) => void; store: { nodesMap: Record<str
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const submitLoading = ref(false)
+const exportLoading = ref(false)
 const dialogVisible = ref(false)
-const importVisible = ref(false)
 const treeData = ref<SupplyChainTagV2Node[]>([])
 const treeFilter = ref('')
 const selectedNode = ref<SupplyChainTagV2Node | null>(null)
@@ -383,12 +372,16 @@ async function handleDelete(node: SupplyChainTagV2Node) {
   }
 }
 
-function handleFileChange(_file: UploadFile) {
-  ElMessage.info('Excel 导入功能开发中')
-}
-
-function handleExport() {
-  ElMessage.info('Excel 导出功能开发中')
+async function handleExport() {
+  exportLoading.value = true
+  try {
+    await exportSupplyChainTagV2()
+    ElMessage.success('导出成功')
+  } catch (e: unknown) {
+    ElMessage.error(e instanceof Error ? e.message : '导出失败')
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 onMounted(() => {

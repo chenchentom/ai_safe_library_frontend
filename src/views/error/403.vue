@@ -1,13 +1,36 @@
 <template>
   <div class="error-page">
     <h1>403</h1>
-    <p>权限不足</p>
-    <el-button type="primary" @click="$router.push('/')">返回首页</el-button>
+    <p>权限不足或登录状态已失效</p>
+    <div class="error-actions">
+      <el-button type="primary" @click="goLogin">重新登录</el-button>
+      <el-button @click="goHome">返回首页</el-button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-// 403 权限不足页
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { forceDismissOverlays } from '@/utils/cleanupOverlays'
+
+const router = useRouter()
+const authStore = useAuthStore()
+
+function goLogin() {
+  authStore.clearSession()
+  forceDismissOverlays()
+  router.replace('/login')
+}
+
+async function goHome() {
+  forceDismissOverlays()
+  if (authStore.hasValidSession() && authStore.canAccessPath('/dashboard')) {
+    router.replace('/dashboard')
+    return
+  }
+  goLogin()
+}
 </script>
 
 <style lang="scss" scoped>
@@ -26,5 +49,10 @@
     color: var(--color-text-secondary);
     margin: 16px 0 24px;
   }
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
 }
 </style>

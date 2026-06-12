@@ -9,8 +9,8 @@ $mb-text: rgba(255, 255, 255, 0.88);
 $mb-text-muted: rgba(255, 255, 255, 0.58);
 $mb-text-dim: rgba(255, 255, 255, 0.42);
 
-// 遮罩（MessageBox / Dialog 共用）
-.el-overlay {
+// 遮罩（仅 MessageBox，避免误伤其它 el-overlay 导致全页不可点）
+.el-overlay.is-message-box {
   background-color: rgba(3, 6, 12, 0.72);
   backdrop-filter: blur(4px);
 }

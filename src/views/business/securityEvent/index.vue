@@ -379,15 +379,17 @@
             </article>
 
             <div v-if="!loading && eventList.length === 0" class="empty-state">
-              <div class="empty-icon-wrap">
-                <el-icon :size="40"><FolderOpened /></el-icon>
+              <div class="empty-state__panel">
+                <div class="empty-icon-wrap">
+                  <el-icon :size="40"><FolderOpened /></el-icon>
+                </div>
+                <p class="empty-title">无匹配事件</p>
+                <p class="empty-hint">尝试调整顶部筛选条件或清空关键词</p>
+                <el-button type="primary" plain size="small" class="empty-action" @click="handleReset">
+                  <el-icon><RefreshLeft /></el-icon>
+                  清空筛选
+                </el-button>
               </div>
-              <p class="empty-title">无匹配事件</p>
-              <p class="empty-hint">尝试调整顶部筛选条件或清空关键词</p>
-              <el-button type="primary" plain size="small" @click="handleReset">
-                <el-icon><RefreshLeft /></el-icon>
-                清空筛选
-              </el-button>
             </div>
           </div>
         </div>
@@ -663,7 +665,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, onDeactivated, onBeforeUnmount, onActivated, computed } from 'vue'
+import { forceDismissOverlays, resetBusinessPageShell } from '@/utils/cleanupOverlays'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Close,
@@ -766,6 +769,9 @@ const filters = reactive({
   sourceWebsite: '',
   operatingEntityHuman: '',
   productsComponentsServices: '',
+  submitUserName: '',
+  submitOrgName: '',
+  submissionChannel: '',
   auditDateRange: [] as string[],
 })
 
@@ -1084,6 +1090,15 @@ const activeFilterChips = computed(() => {
   if (filters.productsComponentsServices) {
     chips.push({ key: 'productsComponentsServices', shortLabel: `产品 · ${filters.productsComponentsServices}` })
   }
+  if (filters.submitUserName) {
+    chips.push({ key: 'submitUserName', shortLabel: `报送人 · ${filters.submitUserName}` })
+  }
+  if (filters.submitOrgName) {
+    chips.push({ key: 'submitOrgName', shortLabel: `报送部门 · ${filters.submitOrgName}` })
+  }
+  if (filters.submissionChannel) {
+    chips.push({ key: 'submissionChannel', shortLabel: `报送渠道 · ${filters.submissionChannel}` })
+  }
   if (filters.auditDateRange?.length === 2) {
     chips.push({
       key: 'auditDateRange',
@@ -1098,6 +1113,9 @@ const moreFilterCount = computed(() => {
   if (filters.sourceWebsite) n++
   if (filters.operatingEntityHuman) n++
   if (filters.productsComponentsServices) n++
+  if (filters.submitUserName) n++
+  if (filters.submitOrgName) n++
+  if (filters.submissionChannel) n++
   return n
 })
 
@@ -1110,6 +1128,9 @@ function clearMoreFilters() {
   filters.sourceWebsite = ''
   filters.operatingEntityHuman = ''
   filters.productsComponentsServices = ''
+  filters.submitUserName = ''
+  filters.submitOrgName = ''
+  filters.submissionChannel = ''
 }
 
 function removeFilterChip(key: string) {
@@ -1118,6 +1139,9 @@ function removeFilterChip(key: string) {
   if (key === 'sourceWebsite') filters.sourceWebsite = ''
   if (key === 'operatingEntityHuman') filters.operatingEntityHuman = ''
   if (key === 'productsComponentsServices') filters.productsComponentsServices = ''
+  if (key === 'submitUserName') filters.submitUserName = ''
+  if (key === 'submitOrgName') filters.submitOrgName = ''
+  if (key === 'submissionChannel') filters.submissionChannel = ''
   if (key === 'auditDateRange') filters.auditDateRange = []
   handleSearch()
 }
@@ -1181,6 +1205,9 @@ async function fetchData() {
     if (filters.productsComponentsServices) {
       params.productsComponentsServices = filters.productsComponentsServices.trim()
     }
+    if (filters.submitUserName) params.submitUserName = filters.submitUserName.trim()
+    if (filters.submitOrgName) params.submitOrgName = filters.submitOrgName.trim()
+    if (filters.submissionChannel) params.submissionChannel = filters.submissionChannel.trim()
     if (filters.auditDateRange?.length === 2) {
       params.auditStartTime = filters.auditDateRange[0]
       params.auditEndTime = filters.auditDateRange[1]
@@ -1277,9 +1304,23 @@ function handleReset() {
   filters.sourceWebsite = ''
   filters.operatingEntityHuman = ''
   filters.productsComponentsServices = ''
+  filters.submitUserName = ''
+  filters.submitOrgName = ''
+  filters.submissionChannel = ''
   filters.auditDateRange = []
   pagination.page = 1
   fetchData()
+}
+
+function resetPageState() {
+  resetBusinessPageShell({
+    loading,
+    drawerVisible,
+    filterPopoverVisible,
+    dialogVisible: createDialogVisible,
+  })
+  currentEvent.value = null
+  stopResize()
 }
 
 onMounted(() => {
@@ -1289,13 +1330,17 @@ onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
 })
 
-onUnmounted(() => {
+onActivated(() => {
+  forceDismissOverlays()
+})
+
+onDeactivated(resetPageState)
+onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown)
-  stopResize()
+  resetPageState()
 })
 </script>
 
-<style lang="scss" scoped src="../riskClue/risk-clue.scss"></style>
 <style lang="scss" scoped src="./security-event.scss"></style>
 
 <style lang="scss">
