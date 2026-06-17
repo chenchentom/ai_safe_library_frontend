@@ -1,4 +1,4 @@
-import { get, post, del } from '@/api/index'
+import { get, post, put, del } from '@/api/index'
 
 /** 手动新增线索/事件 */
 export interface RiskClueManualCreatePayload {
@@ -56,6 +56,8 @@ export interface RiskClue {
   isWarehouse?: number
   is_verify?: number
   isVerify?: number
+  is_submit?: number
+  isSubmit?: number
   tags?: string[]
   class_report_1?: string
   classReport1?: string
@@ -95,6 +97,10 @@ export interface RiskClue {
   audit_reason?: string
   auditReason?: string
   deleted?: number
+  has_report?: number
+  hasReport?: number
+  report_attachments?: Array<{ id?: string; file_name?: string; content_type?: string; size?: number }>
+  reportAttachments?: Array<{ id?: string; fileName?: string; contentType?: string; size?: number }>
   /** 列表卡片展示用，由 normalizeClueData 填充 */
   _cardCategories?: string[]
 }
@@ -121,6 +127,10 @@ export interface ReviewDTO {
   riskDescriptionHuman?: string
   operatingEntityHuman?: string
   reviewComment?: string
+  /** 是否验证：0=否，1=是；不传则不更新 */
+  isVerify?: number
+  /** 是否报送：0=否，1=是；不传则不更新 */
+  isSubmit?: number
 }
 
 // 审核记录
@@ -157,6 +167,10 @@ export interface ReviewRecord {
   review_time?: string
   warehouseTime?: string
   warehouse_time?: string
+  isVerify?: number
+  is_verify?: number
+  isSubmit?: number
+  is_submit?: number
 }
 
 // 统计数据
@@ -202,6 +216,10 @@ export interface RiskClueSearchParams {
   submitUserName?: string
   /** 报送部门（模糊） */
   submitOrgName?: string
+  /** 是否验证：0=否，1=是 */
+  isVerify?: number
+  /** 是否报送：0=否，1=是 */
+  isSubmit?: number
   /** @deprecated 兼容旧参数 */
   riskLevel?: string
   sourceType?: string
@@ -257,6 +275,11 @@ export function deleteRiskClue(id: string) {
 // 手动新增风险线索（待审核）
 export function createRiskClue(data: RiskClueManualCreatePayload) {
   return post<{ id: string }>('/business/risk-clue', data as unknown as Record<string, unknown>)
+}
+
+/** 编辑待审核线索（风险线索库） */
+export function updateRiskClue(id: string, data: RiskClueManualCreatePayload) {
+  return put<string>(`/business/risk-clue/${id}`, data as unknown as Record<string, unknown>)
 }
 
 /** 根据报送人昵称解析报送部门 */

@@ -73,7 +73,7 @@ export function get<T = unknown>(url: string, params?: Record<string, unknown>, 
   return service.get(url, { params, ...config })
 }
 
-export function post<T = unknown>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> {
+export function post<T = unknown>(url: string, data?: Record<string, unknown> | FormData, config?: AxiosRequestConfig): Promise<T> {
   return service.post(url, data, config)
 }
 

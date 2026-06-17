@@ -150,6 +150,14 @@
               </span>
             </template>
           </el-table-column>
+          <el-table-column label="报告匹配" :width="120" align="center">
+            <template #default="{ row }">
+              <span v-if="row.zipFileName" class="upload-history__mono">
+                {{ row.reportMatchedCount ?? 0 }}/{{ row.totalCount ?? 0 }}
+              </span>
+              <span v-else>—</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="status" label="状态" :width="TABLE_COL.status" align="center">
             <template #default="{ row }">
               <span class="upload-history__status" :class="`is-${row.status}`">
@@ -191,7 +199,7 @@
 
     <el-drawer
       v-model="drawerVisible"
-      size="640px"
+      size="50%"
       destroy-on-close
       class="upload-history-drawer"
       modal-class="upload-history-drawer-overlay"
@@ -242,7 +250,7 @@
                 v-loading="detailLoading"
                 :data="failDetails"
                 size="small"
-                max-height="420"
+                max-height="calc(100vh - 320px)"
                 class="upload-history-drawer__table"
                 empty-text="无失败记录"
               >
@@ -262,7 +270,7 @@
                 v-loading="detailLoading"
                 :data="successDetails"
                 size="small"
-                max-height="420"
+                max-height="calc(100vh - 320px)"
                 class="upload-history-drawer__table"
                 empty-text="无成功记录"
               >
@@ -271,7 +279,13 @@
                     <span class="upload-history__mono">{{ row.serialNo ?? '—' }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="eventName" label="事件名" min-width="220" show-overflow-tooltip />
+                <el-table-column prop="eventName" label="事件名" min-width="180" show-overflow-tooltip />
+                <el-table-column prop="attachmentStatus" label="报告" width="90" align="center">
+                  <template #default="{ row }">
+                    {{ attachmentStatusLabel(row.attachmentStatus) }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="attachmentNames" label="报告文件" min-width="160" show-overflow-tooltip />
               </el-table>
             </div>
           </el-tab-pane>
@@ -372,6 +386,15 @@ function statusLabel(status: string): string {
     fail: '失败',
   }
   return map[status] || status
+}
+
+function attachmentStatusLabel(status?: string): string {
+  const map: Record<string, string> = {
+    matched: '已匹配',
+    missing: '缺报告',
+    none: '无',
+  }
+  return status ? (map[status] || status) : '—'
 }
 
 async function fetchList() {
@@ -498,6 +521,9 @@ defineExpose({ refresh: fetchList })
 }
 
 .upload-history-drawer.el-drawer {
+  width: 50% !important;
+  max-width: 960px;
+  min-width: 480px;
   background:
     radial-gradient(ellipse 80% 50% at 100% 0%, rgba(79, 124, 255, 0.1), transparent 50%),
     linear-gradient(180deg, rgba(6, 12, 24, 0.99), rgba(3, 7, 16, 1)) !important;

@@ -3,7 +3,7 @@
     class="risk-clue-page"
     :class="{ 'has-drawer': drawerVisible, 'risk-clue-page--embedded': embedded }"
   >
-    <div v-if="drawerVisible" class="page-backdrop" @click="drawerVisible = false" />
+    <div v-if="drawerVisible" class="page-backdrop" @click="closeDetailDrawer" />
     <!-- LEFT: Filter Panel -->
     <aside class="filter-panel">
       <header class="filter-header">
@@ -69,6 +69,7 @@
                   filterable
                   collapse-tags
                   collapse-tags-tooltip
+                  effect="dark"
                   class="filter-control filter-control--category"
                   popper-class="app-tag-cascader-popper"
                 />
@@ -133,6 +134,85 @@
                     <el-icon><OfficeBuilding /></el-icon>
                   </template>
                 </el-input>
+              </div>
+            </div>
+          </section>
+
+          <section class="filter-section">
+            <h3 class="filter-section__title">
+              <el-icon><CircleCheck /></el-icon>
+              报送状态
+            </h3>
+            <div class="filter-fields">
+              <div class="filter-field">
+                <label class="filter-label">
+                  <el-icon><CircleCheck /></el-icon>
+                  是否验证
+                </label>
+                <div class="filter-segment filter-segment--2" role="group" aria-label="是否验证">
+                  <button
+                    type="button"
+                    class="filter-segment__btn"
+                    :class="{ 'is-active': filters.isVerify === undefined }"
+                    @click="filters.isVerify = undefined"
+                  >
+                    <el-icon><Grid /></el-icon>
+                    全部
+                  </button>
+                  <button
+                    type="button"
+                    class="filter-segment__btn"
+                    :class="{ 'is-active': filters.isVerify === 1 }"
+                    @click="filters.isVerify = 1"
+                  >
+                    <el-icon><CircleCheck /></el-icon>
+                    是
+                  </button>
+                  <button
+                    type="button"
+                    class="filter-segment__btn"
+                    :class="{ 'is-active': filters.isVerify === 0 }"
+                    @click="filters.isVerify = 0"
+                  >
+                    <el-icon><Remove /></el-icon>
+                    否
+                  </button>
+                </div>
+              </div>
+              <div class="filter-field">
+                <label class="filter-label">
+                  <el-icon><Upload /></el-icon>
+                  是否报送
+                </label>
+                <div class="filter-segment filter-segment--2" role="group" aria-label="是否报送">
+                  <button
+                    type="button"
+                    class="filter-segment__btn"
+                    :class="{ 'is-active': filters.isSubmit === undefined }"
+                    @click="filters.isSubmit = undefined"
+                  >
+                    <el-icon><Grid /></el-icon>
+                    全部
+                  </button>
+                  <button
+                    type="button"
+                    class="filter-segment__btn"
+                    :class="{ 'is-active': filters.isSubmit === 1 }"
+                    @click="filters.isSubmit = 1"
+                  >
+                    <el-icon><Upload /></el-icon>
+                    是
+                  </button>
+                  <button
+                    type="button"
+                    class="filter-segment__btn"
+                    :class="{ 'is-active': filters.isSubmit === 0 }"
+                    @click="filters.isSubmit = 0"
+                  >
+                    <el-icon><Remove /></el-icon>
+                    否
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -316,6 +396,7 @@
                   filterable
                   collapse-tags
                   collapse-tags-tooltip
+                  effect="dark"
                   class="filter-control filter-control--category"
                   popper-class="app-tag-cascader-popper"
                 />
@@ -652,8 +733,7 @@
             v-if="showReviewHistoryBtn"
             type="button"
             class="panel-history-btn"
-            :disabled="reviewHistoryLoading"
-            @click="openReviewHistoryDialog"
+            @click.stop="openReviewHistoryDialog"
           >
             <el-icon><Clock /></el-icon>
             <span>审核历史</span>
@@ -670,7 +750,7 @@
             <el-icon><Delete /></el-icon>
             <span>删除</span>
           </button>
-          <button type="button" class="panel-close" aria-label="关闭详情" @click="drawerVisible = false">
+          <button type="button" class="panel-close" aria-label="关闭详情" @click="closeDetailDrawer">
             <el-icon><Close /></el-icon>
           </button>
         </div>
@@ -780,12 +860,27 @@
               <dt>报送人</dt>
               <dd>{{ pickDisplayText(currentClue, 'submit_user_name', 'submitUserName') }}</dd>
             </div>
+            <div class="detail-dl__row">
+              <dt>是否验证</dt>
+              <dd>{{ getYesNoField(currentClue, 'is_verify', 'isVerify') }}</dd>
+            </div>
+            <div class="detail-dl__row">
+              <dt>是否报送</dt>
+              <dd>{{ getYesNoField(currentClue, 'is_submit', 'isSubmit') }}</dd>
+            </div>
             <div class="detail-dl__row detail-dl__row--full">
               <dt>产品/组件/服务</dt>
               <dd>{{ pickDisplayText(currentClue, 'products_components_services', 'productsComponentsServices') }}</dd>
             </div>
           </dl>
         </section>
+
+        <ClueReportAttachments
+          v-if="currentClue?.id"
+          :key="attachmentPanelKey"
+          :clue-id="currentClue.id"
+          :initial-attachments="currentClue.report_attachments || currentClue.reportAttachments"
+        />
 
         <section v-if="getAuditStatus(currentClue) === 20" class="detail-block detail-block--audit">
           <header class="detail-block__header">
@@ -908,6 +1003,70 @@
                 </div>
               </div>
 
+              <div class="review-form__section">
+                <span class="review-form__section-label">报送状态 <span class="review-form__optional">选填</span></span>
+                <div class="review-form__grid">
+                  <div class="review-yesno-field">
+                    <span class="review-yesno-field__label">是否验证</span>
+                    <div class="yesno-toggle" role="group" aria-label="是否验证">
+                      <button
+                        type="button"
+                        class="yesno-toggle__btn"
+                        :class="{ 'is-active': reviewForm.isVerify === undefined }"
+                        @click="reviewForm.isVerify = undefined"
+                      >
+                        不设置
+                      </button>
+                      <button
+                        type="button"
+                        class="yesno-toggle__btn"
+                        :class="{ 'is-active': reviewForm.isVerify === 1 }"
+                        @click="reviewForm.isVerify = 1"
+                      >
+                        是
+                      </button>
+                      <button
+                        type="button"
+                        class="yesno-toggle__btn"
+                        :class="{ 'is-active': reviewForm.isVerify === 0 }"
+                        @click="reviewForm.isVerify = 0"
+                      >
+                        否
+                      </button>
+                    </div>
+                  </div>
+                  <div class="review-yesno-field">
+                    <span class="review-yesno-field__label">是否报送</span>
+                    <div class="yesno-toggle" role="group" aria-label="是否报送">
+                      <button
+                        type="button"
+                        class="yesno-toggle__btn"
+                        :class="{ 'is-active': reviewForm.isSubmit === undefined }"
+                        @click="reviewForm.isSubmit = undefined"
+                      >
+                        不设置
+                      </button>
+                      <button
+                        type="button"
+                        class="yesno-toggle__btn"
+                        :class="{ 'is-active': reviewForm.isSubmit === 1 }"
+                        @click="reviewForm.isSubmit = 1"
+                      >
+                        是
+                      </button>
+                      <button
+                        type="button"
+                        class="yesno-toggle__btn"
+                        :class="{ 'is-active': reviewForm.isSubmit === 0 }"
+                        @click="reviewForm.isSubmit = 0"
+                      >
+                        否
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div class="review-form__grid">
                 <el-form-item label="风险类别" required class="review-form__item">
                   <el-cascader
@@ -917,7 +1076,9 @@
                     placeholder="请选择一级 / 二级类别"
                     clearable
                     filterable
-                    class="review-control"
+                    effect="dark"
+                    class="review-control review-control--category"
+                    popper-class="app-tag-cascader-popper"
                   />
                 </el-form-item>
                 <el-form-item label="运营主体" class="review-form__item">
@@ -974,8 +1135,8 @@
       class="review-history-dialog"
       modal-class="review-history-dialog-overlay"
       append-to-body
-      destroy-on-close
       align-center
+      :z-index="5000"
     >
       <div v-loading="reviewHistoryLoading" class="review-history-dialog__body">
         <div v-if="reviewHistory.length > 0" class="review-timeline">
@@ -1026,6 +1187,14 @@
                 <div class="timeline-dl__row">
                   <dt>审核备注</dt>
                   <dd>{{ pickDisplayText(record, 'reviewComment', 'review_comment') }}</dd>
+                </div>
+                <div v-if="hasRecordYesNo(record, 'isVerify', 'is_verify')" class="timeline-dl__row">
+                  <dt>是否验证</dt>
+                  <dd>{{ getYesNoField(record, 'is_verify', 'isVerify') }}</dd>
+                </div>
+                <div v-if="hasRecordYesNo(record, 'isSubmit', 'is_submit')" class="timeline-dl__row">
+                  <dt>是否报送</dt>
+                  <dd>{{ getYesNoField(record, 'is_submit', 'isSubmit') }}</dd>
                 </div>
               </dl>
             </div>
@@ -1197,15 +1366,17 @@
       v-if="!sharedScope"
       v-model:visible="createDialogVisible"
       mode="clue"
+      :edit-via="deptScope ? 'report' : 'library'"
       @success="onManualCreateSuccess"
     />
 
     <ManualClueCreateDialog
-      v-if="deptScope"
+      v-if="!sharedScope"
       v-model:visible="editDialogVisible"
       mode="clue"
       :edit-clue-id="editClueId"
       :edit-clue="editClueSnapshot"
+      :edit-via="deptScope ? 'report' : 'library'"
       @success="onEditSuccess"
     />
   </div>
@@ -1252,6 +1423,7 @@ import {
   Delete,
 } from '@element-plus/icons-vue'
 import ManualClueCreateDialog from '@/components/business/ManualClueCreateDialog.vue'
+import ClueReportAttachments from '@/components/business/ClueReportAttachments.vue'
 import { searchMyReports, getMyReportStats, searchSharedClues, getSharedClueStats } from '@/api/riskReport'
 import {
   searchRiskClue,
@@ -1324,6 +1496,7 @@ const createDialogVisible = ref(false)
 const editDialogVisible = ref(false)
 const editClueId = ref('')
 const editClueSnapshot = ref<RiskClue | null>(null)
+const attachmentPanelKey = ref(0)
 const drawerWidth = ref(960)
 const DRAWER_MIN = 720
 const DRAWER_MAX = 1400
@@ -1476,6 +1649,8 @@ const filters = reactive({
   submissionDateRange: [] as string[],
   submitUserName: '',
   submitOrgName: '',
+  isVerify: undefined as number | undefined,
+  isSubmit: undefined as number | undefined,
 })
 
 const pagination = reactive({
@@ -1490,11 +1665,23 @@ const totalPages = computed(() =>
 
 const reviewForm = reactive({
   isWarehouse: 0 as 0 | 1,
+  isVerify: undefined as number | undefined,
+  isSubmit: undefined as number | undefined,
   riskCategory: [] as string[],
   riskDescriptionHuman: '',
   operatingEntityHuman: '',
   reviewComment: '',
 })
+
+function parseOptionalYesNo(item: any, ...keys: string[]): number | undefined {
+  if (!item) return undefined
+  for (const key of keys) {
+    const val = item[key]
+    if (val === 0 || val === '0') return 0
+    if (val === 1 || val === '1') return 1
+  }
+  return undefined
+}
 
 function parseCategoryPath(item: any): string[] {
   const c1 = item.class_human_1 || item.classHuman1
@@ -1512,6 +1699,8 @@ function parseCategoryPath(item: any): string[] {
 function resetReviewForm(item?: any) {
   const clue = item || currentClue.value
   reviewForm.isWarehouse = (clue?.is_warehouse ?? clue?.isWarehouse ?? 0) as 0 | 1
+  reviewForm.isVerify = parseOptionalYesNo(clue, 'is_verify', 'isVerify')
+  reviewForm.isSubmit = parseOptionalYesNo(clue, 'is_submit', 'isSubmit')
   reviewForm.riskCategory = clue ? parseCategoryPath(clue) : []
   reviewForm.riskDescriptionHuman =
     clue?.risk_description_human ||
@@ -1547,6 +1736,26 @@ function pickDisplayText(item: any, ...keys: string[]): string {
   return displayText(pickRawText(item, ...keys))
 }
 
+function formatYesNo(value: unknown): string {
+  if (value === 1 || value === '1') return '是'
+  if (value === 0 || value === '0') return '否'
+  return '—'
+}
+
+function getYesNoField(item: any, ...keys: string[]): string {
+  for (const key of keys) {
+    const val = item?.[key]
+    if (val === 0 || val === 1 || val === '0' || val === '1') {
+      return formatYesNo(val)
+    }
+  }
+  return '—'
+}
+
+function hasRecordYesNo(record: any, ...keys: string[]): boolean {
+  return parseOptionalYesNo(record, ...keys) !== undefined
+}
+
 function getSubmissionChannelDisplay(item: any): string {
   const raw = pickRawText(item, 'submission_channel', 'submissionChannel', 'sourceType')
   return raw ? sourceLabel(raw) : '—'
@@ -1572,10 +1781,11 @@ function canReviewClue(item: any): boolean {
   return status === 10 || status === 20
 }
 
-/** 我的报送：未审核状态可编辑基础信息 */
+/** 未审核、已审核线索可编辑（线索库 / 我的报送；共享线索只读） */
 function canEditCurrentClue(item: any): boolean {
-  if (!props.deptScope || !item) return false
-  return getAuditStatus(item) === 10
+  if (!item || props.sharedScope) return false
+  const status = getAuditStatus(item)
+  return status === 10 || status === 20
 }
 
 /** 未审核状态可删除；已审核、共享浏览不可删除 */
@@ -1595,6 +1805,7 @@ async function onEditSuccess(id: string) {
   editDialogVisible.value = false
   editClueId.value = ''
   editClueSnapshot.value = null
+  attachmentPanelKey.value += 1
   await fetchStats()
   await fetchData()
   if (currentClue.value?.id === id) {
@@ -1837,7 +2048,7 @@ async function loadReviewHistory(clueId: string) {
   reviewHistoryLoading.value = true
   try {
     const res = await getReviewHistory(clueId)
-    reviewHistory.value = (res as unknown as ReviewRecord[]) || []
+    reviewHistory.value = Array.isArray(res) ? res : []
   } catch {
     reviewHistory.value = []
   } finally {
@@ -1845,11 +2056,17 @@ async function loadReviewHistory(clueId: string) {
   }
 }
 
+function closeDetailDrawer() {
+  reviewHistoryDialogVisible.value = false
+  drawerVisible.value = false
+}
+
 async function openReviewHistoryDialog() {
-  if (!currentClue.value) return
+  const clueId = currentClue.value?.id
+  if (!clueId) return
   reviewHistoryDialogVisible.value = true
   if (!reviewHistory.value.length) {
-    await loadReviewHistory(currentClue.value.id)
+    await loadReviewHistory(clueId)
   }
 }
 
@@ -2003,6 +2220,12 @@ const activeFilterChips = computed(() => {
   }
   if (filters.submitUserName) chips.push({ key: 'submitUserName', label: `报送人: ${filters.submitUserName}` })
   if (filters.submitOrgName) chips.push({ key: 'submitOrgName', label: `报送部门: ${filters.submitOrgName}` })
+  if (filters.isVerify !== undefined) {
+    chips.push({ key: 'isVerify', label: `是否验证: ${formatYesNo(filters.isVerify)}` })
+  }
+  if (filters.isSubmit !== undefined) {
+    chips.push({ key: 'isSubmit', label: `是否报送: ${formatYesNo(filters.isSubmit)}` })
+  }
   return chips
 })
 
@@ -2016,6 +2239,8 @@ const submissionFilterCount = computed(() => {
   if (filters.submissionDateRange?.length === 2) n++
   if (filters.submitUserName) n++
   if (filters.submitOrgName) n++
+  if (filters.isVerify !== undefined) n++
+  if (filters.isSubmit !== undefined) n++
   return n
 })
 
@@ -2047,7 +2272,9 @@ const hasExtraFilters = computed(() => {
     filters.productsComponentsServices ||
     filters.submissionDateRange.length === 2 ||
     filters.submitUserName ||
-    filters.submitOrgName
+    filters.submitOrgName ||
+    filters.isVerify !== undefined ||
+    filters.isSubmit !== undefined
   )
 })
 
@@ -2121,7 +2348,9 @@ function removeFilterChip(key: string) {
   if (key === 'submissionDateRange') filters.submissionDateRange = []
   if (key === 'submitUserName') filters.submitUserName = ''
   if (key === 'submitOrgName') filters.submitOrgName = ''
-  if (['riskCategory', 'sourceWebsite', 'operatingEntity', 'submissionChannel', 'productsComponentsServices', 'submissionDateRange', 'submitUserName', 'submitOrgName'].includes(key)) {
+  if (key === 'isVerify') filters.isVerify = undefined
+  if (key === 'isSubmit') filters.isSubmit = undefined
+  if (['riskCategory', 'sourceWebsite', 'operatingEntity', 'submissionChannel', 'productsComponentsServices', 'submissionDateRange', 'submitUserName', 'submitOrgName', 'isVerify', 'isSubmit'].includes(key)) {
     filterTab.value = 'submission'
   }
   if (['reviewStatus', 'isWarehouse', 'auditRiskCategory', 'operatingEntityHuman', 'auditUserName', 'auditDateRange'].includes(key)) {
@@ -2144,8 +2373,12 @@ function handleKeydown(e: KeyboardEvent) {
   if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
     return
   }
+  if (e.key === 'Escape' && reviewHistoryDialogVisible.value) {
+    reviewHistoryDialogVisible.value = false
+    return
+  }
   if (e.key === 'Escape' && drawerVisible.value) {
-    drawerVisible.value = false
+    closeDetailDrawer()
     return
   }
   if (e.key === 'ArrowDown') {
@@ -2232,6 +2465,8 @@ function buildFilterParams(includePagination = true): Record<string, unknown> {
   }
   if (filters.submitUserName) params.submitUserName = filters.submitUserName.trim()
   if (filters.submitOrgName) params.submitOrgName = filters.submitOrgName.trim()
+  if (filters.isVerify !== undefined) params.isVerify = filters.isVerify
+  if (filters.isSubmit !== undefined) params.isSubmit = filters.isSubmit
   return params
 }
 
@@ -2406,6 +2641,8 @@ async function handleSubmitReview() {
       riskDescriptionHuman: reviewForm.riskDescriptionHuman.trim(),
       operatingEntityHuman: reviewForm.operatingEntityHuman.trim() || undefined,
       reviewComment: reviewForm.reviewComment.trim() || undefined,
+      ...(reviewForm.isVerify !== undefined ? { isVerify: reviewForm.isVerify } : {}),
+      ...(reviewForm.isSubmit !== undefined ? { isSubmit: reviewForm.isSubmit } : {}),
     })
     ElMessage.success(isRereview ? '重新审核成功' : '审核提交成功')
     await fetchData()
@@ -2446,12 +2683,15 @@ function handleReset() {
   filters.submissionDateRange = []
   filters.submitUserName = ''
   filters.submitOrgName = ''
+  filters.isVerify = undefined
+  filters.isSubmit = undefined
   filterTab.value = 'submission'
   pagination.page = 1
   fetchData()
 }
 
 function resetPageState() {
+  reviewHistoryDialogVisible.value = false
   resetBusinessPageShell({
     loading,
     drawerVisible,

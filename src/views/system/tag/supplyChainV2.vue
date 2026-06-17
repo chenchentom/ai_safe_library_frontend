@@ -166,6 +166,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import type { TreeNodeData } from 'element-plus/es/components/tree/src/tree.type'
 import { Plus, Edit, Delete, Search, Download, Fold, Expand } from '@element-plus/icons-vue'
 import {
   getSupplyChainTagV2Tree,
@@ -223,9 +224,10 @@ watch(treeFilter, (val) => {
   treeRef.value?.filter(val)
 })
 
-function filterNode(value: string, data: SupplyChainTagV2Node): boolean {
+function filterNode(value: string, data: TreeNodeData): boolean {
   if (!value) return true
-  return data.label.toLowerCase().includes(value.toLowerCase())
+  const node = data as SupplyChainTagV2Node
+  return node.label.toLowerCase().includes(value.toLowerCase())
 }
 
 function expandAll() {
