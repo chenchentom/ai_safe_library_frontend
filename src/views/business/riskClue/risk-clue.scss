@@ -429,11 +429,13 @@
 }
 
 .filter-panel :deep(.filter-control.el-cascader),
-.filter-panel :deep(.filter-control--category.el-cascader) {
+.filter-panel :deep(.filter-control--category.el-cascader),
+.detail-panel :deep(.review-control--category.el-cascader) {
   width: 100%;
 }
 
-.filter-panel :deep(.filter-control--category.el-cascader .el-input__wrapper) {
+.filter-panel :deep(.filter-control--category.el-cascader .el-input__wrapper),
+.detail-panel :deep(.review-control--category.el-cascader .el-input__wrapper) {
   min-height: 36px;
   background: rgba(0, 0, 0, 0.2) !important;
   border: 1px solid rgba(79, 124, 255, 0.12) !important;
@@ -444,12 +446,14 @@
     box-shadow $duration-base $ease-out;
 }
 
-.filter-panel :deep(.filter-control--category.el-cascader .el-input__wrapper:hover) {
+.filter-panel :deep(.filter-control--category.el-cascader .el-input__wrapper:hover),
+.detail-panel :deep(.review-control--category.el-cascader .el-input__wrapper:hover) {
   border-color: rgba(99, 140, 255, 0.26) !important;
   background: rgba(0, 0, 0, 0.28) !important;
 }
 
-.filter-panel :deep(.filter-control--category.el-cascader .el-input.is-focus .el-input__wrapper) {
+.filter-panel :deep(.filter-control--category.el-cascader .el-input.is-focus .el-input__wrapper),
+.detail-panel :deep(.review-control--category.el-cascader .el-input.is-focus .el-input__wrapper) {
   border-color: rgba(99, 140, 255, 0.42) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
@@ -457,36 +461,50 @@
 }
 
 .filter-panel :deep(.filter-control--category .el-input__inner),
-.filter-panel :deep(.filter-control--category .el-cascader__label) {
+.filter-panel :deep(.filter-control--category .el-cascader__label),
+.detail-panel :deep(.review-control--category .el-input__inner),
+.detail-panel :deep(.review-control--category .el-cascader__label) {
   color: rgba(255, 255, 255, 0.9);
   font-size: $font-size-sm;
 }
 
-.filter-panel :deep(.filter-control--category .el-input__inner::placeholder) {
+.filter-panel :deep(.filter-control--category .el-input__inner::placeholder),
+.detail-panel :deep(.review-control--category .el-input__inner::placeholder) {
   color: rgba(150, 170, 200, 0.45);
 }
 
 .filter-panel :deep(.filter-control--category .el-input__suffix),
-.filter-panel :deep(.filter-control--category .el-icon) {
+.filter-panel :deep(.filter-control--category .el-icon),
+.detail-panel :deep(.review-control--category .el-input__suffix),
+.detail-panel :deep(.review-control--category .el-icon) {
   color: rgba(120, 150, 200, 0.55);
 }
 
-.filter-panel :deep(.filter-control--category .el-tag) {
+.filter-panel :deep(.filter-control--category .el-tag),
+.detail-panel :deep(.review-control--category .el-tag) {
   background: rgba(79, 124, 255, 0.12);
   border-color: rgba(79, 124, 255, 0.24);
   color: rgba(220, 235, 255, 0.92);
+
+  &:hover {
+    background: rgba(79, 124, 255, 0.22);
+    border-color: rgba(79, 124, 255, 0.38);
+    color: rgba(236, 242, 255, 0.98);
+  }
 }
 
-.filter-panel :deep(.filter-control--category .el-tag .el-tag__close) {
+.filter-panel :deep(.filter-control--category .el-tag .el-tag__close),
+.detail-panel :deep(.review-control--category .el-tag .el-tag__close) {
   color: rgba(160, 180, 210, 0.75);
 
   &:hover {
     color: rgba(255, 255, 255, 0.95);
-    background: rgba(79, 124, 255, 0.2);
+    background: rgba(79, 124, 255, 0.35);
   }
 }
 
-.filter-panel :deep(.filter-control--category .el-cascader__tags) {
+.filter-panel :deep(.filter-control--category .el-cascader__tags),
+.detail-panel :deep(.review-control--category .el-cascader__tags) {
   flex-wrap: nowrap;
 }
 
@@ -2388,6 +2406,14 @@
     color: rgba(180, 190, 210, 0.5);
   }
 
+  &__optional {
+    margin-left: 6px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: rgba(180, 190, 210, 0.38);
+  }
+
   &__grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2423,6 +2449,51 @@
 
   :deep(.el-form-item) {
     margin-bottom: 0;
+  }
+}
+
+.review-yesno-field {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-2;
+
+  &__label {
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    color: rgba(220, 228, 240, 0.78);
+  }
+}
+
+.yesno-toggle {
+  display: flex;
+  gap: 6px;
+
+  &__btn {
+    flex: 1;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid $color-border;
+    border-radius: $border-radius-md;
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(200, 210, 230, 0.85);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+      border-color $duration-base $ease-out,
+      background $duration-base $ease-out,
+      color $duration-base $ease-out;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    &.is-active {
+      border-color: rgba(79, 124, 255, 0.55);
+      background: rgba(79, 124, 255, 0.16);
+      color: #fff;
+    }
   }
 }
 
@@ -2524,8 +2595,7 @@
 }
 
 .detail-panel :deep(.review-control .el-input__wrapper),
-.detail-panel :deep(.review-control.el-textarea .el-textarea__inner),
-.detail-panel :deep(.review-control.el-cascader .el-input__wrapper) {
+.detail-panel :deep(.review-control.el-textarea .el-textarea__inner) {
   background: rgba(0, 0, 0, 0.22);
   border: 1px solid $color-border;
   box-shadow: none;
@@ -2536,14 +2606,12 @@
 }
 
 .detail-panel :deep(.review-control .el-input__wrapper:hover),
-.detail-panel :deep(.review-control.el-textarea .el-textarea__inner:hover),
-.detail-panel :deep(.review-control.el-cascader .el-input__wrapper:hover) {
+.detail-panel :deep(.review-control.el-textarea .el-textarea__inner:hover) {
   border-color: rgba(79, 124, 255, 0.28);
 }
 
 .detail-panel :deep(.review-control .el-input__wrapper.is-focus),
-.detail-panel :deep(.review-control.el-textarea .el-textarea__inner:focus),
-.detail-panel :deep(.review-control.el-cascader .el-input.is-focus .el-input__wrapper) {
+.detail-panel :deep(.review-control.el-textarea .el-textarea__inner:focus) {
   border-color: rgba(79, 124, 255, 0.45);
   box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.1);
 }

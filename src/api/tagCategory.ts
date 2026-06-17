@@ -41,7 +41,7 @@ export interface TagCategoryNode {
   status: string
   description: string
   icon: string
-  children: TagCategoryNode[]
+  children?: TagCategoryNode[]
 }
 
 // 标签表单数据

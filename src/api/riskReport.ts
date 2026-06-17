@@ -18,6 +18,12 @@ export interface UploadBatch {
   fileName: string
   filePath?: string
   fileSize?: number
+  zipFileName?: string
+  zipFilePath?: string
+  reportMatchedCount?: number
+  reportMissingCount?: number
+  reportOrphanCount?: number
+  reportMatchSummary?: string
   totalCount: number
   processedCount: number
   successCount: number
@@ -39,7 +45,19 @@ export interface UploadDetail {
   status: string
   clueId?: string
   errorMessage?: string
+  attachmentStatus?: string
+  attachmentNames?: string
   createTime?: string
+}
+
+export interface UploadMatchPreview {
+  excelRowCount: number
+  validReportCount: number
+  matchedSerialCount: number
+  missingReportSerials: number[]
+  unmatchedFiles: Array<{ fileName: string; reason: string }>
+  matchedPreview: Array<{ serial: number; eventName?: string; files: string[] }>
+  previewToken: string
 }
 
 export interface UploadStartResult {
@@ -84,6 +102,13 @@ export function getMyReportStats() {
   return get<RiskClueStats>('/business/risk-report/stats')
 }
 
+/** 新增本部门待审核报送 */
+export function createMyReport(data: RiskClueManualCreatePayload) {
+  return service
+    .post('/business/risk-report', data as unknown as Record<string, unknown>)
+    .then((res) => res as unknown as { id: string })
+}
+
 /** 编辑本部门待审核报送的基础信息 */
 export function updateMyReport(id: string, data: RiskClueManualCreatePayload) {
   return put<string>(`/business/risk-report/${id}`, data as unknown as Record<string, unknown>)
@@ -97,6 +122,36 @@ export function searchSharedClues(params: RiskClueSearchParams) {
 /** 共享线索统计 */
 export function getSharedClueStats() {
   return get<RiskClueStats>('/business/risk-report/shared/stats')
+}
+
+/** 校验 Excel + 可选 ZIP 匹配 */
+export function previewReportUpload(excel: File, zip: File | null, onUploadProgress?: (percent: number) => void) {
+  const formData = new FormData()
+  formData.append('excel', excel)
+  if (zip) {
+    formData.append('zip', zip)
+  }
+  return service
+    .post('/business/risk-report/upload/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000,
+      onUploadProgress: (event) => {
+        if (!event.total || !onUploadProgress) return
+        onUploadProgress(Math.round((event.loaded / event.total) * 100))
+      },
+    })
+    .then((res) => res as unknown as UploadMatchPreview)
+}
+
+/** 确认批量导入 */
+export function confirmReportUpload(previewToken: string) {
+  const formData = new FormData()
+  formData.append('previewToken', previewToken)
+  return service
+    .post('/business/risk-report/upload/confirm', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res as unknown as UploadStartResult)
 }
 
 /** 上传 Excel，返回批次 ID；onUploadProgress 映射文件上传阶段 0~40% */

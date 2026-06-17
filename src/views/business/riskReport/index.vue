@@ -20,24 +20,45 @@
               </el-button>
             </div>
 
-            <el-upload
-              ref="uploadRef"
-              class="upload-area"
-              drag
-              :auto-upload="false"
-              :limit="1"
-              :disabled="uploading"
-              :on-exceed="handleExceed"
-              :on-change="handleFileChange"
-              :on-remove="handleFileRemove"
-              accept=".xlsx"
-            >
-              <el-icon class="upload-icon" :size="48"><Upload /></el-icon>
-              <div class="upload-text">将文件拖到此处，或<em>点击上传</em></div>
-              <div class="upload-tip">请使用下载模板填写，仅支持 .xlsx 文件</div>
-            </el-upload>
+            <div class="upload-grid">
+              <div class="upload-block">
+                <div class="upload-block__label">Excel 数据文件（必填）</div>
+                <el-upload
+                  ref="excelUploadRef"
+                  class="upload-area"
+                  drag
+                  :auto-upload="false"
+                  :limit="1"
+                  :disabled="uploading || previewing"
+                  :on-change="handleExcelChange"
+                  :on-remove="handleExcelRemove"
+                  accept=".xlsx"
+                >
+                  <el-icon class="upload-icon" :size="40"><Upload /></el-icon>
+                  <div class="upload-text">拖拽或点击选择 .xlsx</div>
+                </el-upload>
+              </div>
 
-            <div v-if="uploading || uploadProgress > 0" class="upload-progress">
+              <div class="upload-block">
+                <div class="upload-block__label">报告 ZIP（可选，文件名须为 序号_名称.ext）</div>
+                <el-upload
+                  ref="zipUploadRef"
+                  class="upload-area"
+                  drag
+                  :auto-upload="false"
+                  :limit="1"
+                  :disabled="uploading || previewing"
+                  :on-change="handleZipChange"
+                  :on-remove="handleZipRemove"
+                  accept=".zip"
+                >
+                  <el-icon class="upload-icon" :size="40"><Upload /></el-icon>
+                  <div class="upload-text">拖拽或点击选择 .zip</div>
+                </el-upload>
+              </div>
+            </div>
+
+            <div v-if="previewing || uploadProgress > 0" class="upload-progress">
               <div class="upload-progress__label">
                 <span>{{ progressLabel }}</span>
                 <span>{{ uploadProgress }}%</span>
@@ -47,19 +68,39 @@
 
             <div class="upload-actions">
               <el-button
+                :loading="previewing"
+                :disabled="!selectedExcel || uploading || previewing"
+                @click="handlePreview"
+              >
+                校验匹配
+              </el-button>
+              <el-button
                 type="primary"
                 :loading="uploading"
-                :disabled="!selectedFile || uploading"
-                @click="handleUpload"
+                :disabled="!selectedExcel || uploading || previewing"
+                @click="handleConfirmUpload"
               >
                 <el-icon><Upload /></el-icon>
-                <span>开始上传</span>
+                <span>确认上传</span>
               </el-button>
             </div>
 
-            <p v-if="uploadResult && !selectedFile && uploadResult.successCount > 0" class="upload-reset-hint">
-              本次上传已完成，请重新选择文件后再上传，避免重复导入。
-            </p>
+            <div v-if="matchPreview" class="match-preview">
+              <div class="match-preview__summary">
+                共 {{ matchPreview.excelRowCount }} 条线索<template v-if="selectedZip">，
+                {{ matchPreview.matchedSerialCount }} 个序号已匹配报告，
+                {{ matchPreview.missingReportSerials.length }} 个序号缺报告，
+                {{ matchPreview.unmatchedFiles.length }} 个 ZIP 文件无法匹配</template><template v-else>（未上传报告 ZIP）</template>。
+              </div>
+              <div v-if="selectedZip && matchPreview.missingReportSerials.length" class="match-preview__warn">
+                缺报告序号：{{ matchPreview.missingReportSerials.join('、') }}
+              </div>
+              <ul v-if="selectedZip && matchPreview.unmatchedFiles.length" class="match-preview__list">
+                <li v-for="(item, idx) in matchPreview.unmatchedFiles" :key="idx">
+                  {{ item.fileName }} — {{ item.reason }}
+                </li>
+              </ul>
+            </div>
 
             <div v-if="uploadResult" class="upload-result">
               <div class="result-header">
@@ -93,7 +134,8 @@
                 <li>第一行为表头，共 17 列：序号、事件名、内容、一级分类、二级分类、产品/组件/服务、运营主体、风险描述、来源url、来源网站、论文名称、研究团队、是否验证、是否报送、报送渠道、报送时间、报送人/分中心</li>
                 <li>必填：事件名、一级分类、二级分类、风险描述；分类须在「风险线索标签」中存在且匹配</li>
                 <li>是否验证/是否报送填「是」或「否」；报送时间支持 Excel 日期或 yyyy-MM-dd 格式</li>
-                <li>单次上传最多 1000 条；文件将存档至部门/年月目录</li>
+                <li>单次上传最多 1000 条；可选 ZIP 报告包，文件命名：1_风险报告.pdf</li>
+                <li>可选先点击「校验匹配」查看报告对应关系；仅 Excel 时也可直接「确认上传」</li>
               </ul>
             </div>
           </div>
@@ -115,79 +157,143 @@ import { Download, Upload, CircleCheckFilled, WarningFilled } from '@element-plu
 import RiskClueLibrary from '@/views/business/riskClue/index.vue'
 import UploadHistoryPanel from '@/views/business/riskReport/UploadHistoryPanel.vue'
 import {
-  uploadReport,
+  confirmReportUpload,
+  previewReportUpload,
   downloadReportTemplate,
   waitUploadComplete,
   getUploadBatchDetails,
+  type UploadMatchPreview,
   type UploadResult,
 } from '@/api/riskReport'
 
 const activeTab = ref('my-reports')
 const uploading = ref(false)
+const previewing = ref(false)
 const uploadProgress = ref(0)
-const selectedFile = ref<File | null>(null)
+const selectedExcel = ref<File | null>(null)
+const selectedZip = ref<File | null>(null)
+const matchPreview = ref<UploadMatchPreview | null>(null)
 const uploadResult = ref<UploadResult | null>(null)
-const uploadRef = ref<UploadInstance>()
+const excelUploadRef = ref<UploadInstance>()
+const zipUploadRef = ref<UploadInstance>()
 const cluePanelRef = ref<{ refresh?: () => void } | null>(null)
 const historyPanelRef = ref<{ refresh?: () => void } | null>(null)
 /** 本页已成功上传过的文件指纹，用于拦截误重复上传 */
 const lastUploadedFileKey = ref<string | null>(null)
+/** 最近一次校验对应的文件组合，用于判断预览是否仍有效 */
+const previewFileKey = ref<string | null>(null)
 
 const progressLabel = computed(() => {
+  if (previewing.value) {
+    return selectedZip.value ? '正在校验 Excel 与 ZIP 匹配…' : '正在校验 Excel…'
+  }
   if (uploadProgress.value < 40) return '正在上传文件…'
   if (uploadProgress.value < 100) return '正在校验并入库…'
   return '处理完成'
 })
 
-const progressStatus = computed(() => {
-  if (uploading.value) return undefined
-  if (uploadResult.value?.failCount) return 'warning'
-  if (uploadResult.value) return 'success'
-  return undefined
-})
-
-function fileKey(file: File): string {
-  return `${file.name}|${file.size}|${file.lastModified}`
+function fileKey(excel: File, zip: File | null): string {
+  const zipPart = zip ? `${zip.name}|${zip.size}|${zip.lastModified}` : 'no-zip'
+  return `${excel.name}|${excel.size}|${excel.lastModified}|${zipPart}`
 }
 
-function clearSelectedFile() {
-  selectedFile.value = null
-  uploadRef.value?.clearFiles()
+function invalidatePreview() {
+  matchPreview.value = null
+  previewFileKey.value = null
 }
 
-function handleFileChange(file: UploadFile) {
-  selectedFile.value = file.raw || null
+function handleExcelChange(file: UploadFile) {
+  selectedExcel.value = file.raw || null
+  invalidatePreview()
   uploadResult.value = null
   uploadProgress.value = 0
 }
 
-function handleFileRemove() {
-  clearSelectedFile()
-  uploadResult.value = null
+function handleExcelRemove() {
+  selectedExcel.value = null
+  invalidatePreview()
+}
+
+function handleZipChange(file: UploadFile) {
+  selectedZip.value = file.raw || null
+  invalidatePreview()
+}
+
+function handleZipRemove() {
+  selectedZip.value = null
+  invalidatePreview()
+}
+
+function buildConfirmMessage(preview: UploadMatchPreview): string {
+  if (selectedZip.value) {
+    return `共 ${preview.excelRowCount} 条线索，${preview.matchedSerialCount} 个序号已匹配报告。若无异议请点击确定开始导入。`
+  }
+  return `共 ${preview.excelRowCount} 条线索将导入（未上传报告 ZIP）。若无异议请点击确定开始导入。`
+}
+
+async function runPreview(showSuccessMessage = false): Promise<UploadMatchPreview | null> {
+  if (!selectedExcel.value) {
+    ElMessage.warning('请先选择 Excel 文件')
+    return null
+  }
+  const currentFileKey = fileKey(selectedExcel.value, selectedZip.value)
+  if (matchPreview.value?.previewToken && previewFileKey.value === currentFileKey) {
+    return matchPreview.value
+  }
+
+  previewing.value = true
   uploadProgress.value = 0
+  matchPreview.value = null
+  try {
+    const preview = await previewReportUpload(selectedExcel.value, selectedZip.value, (p) => {
+      uploadProgress.value = p
+    })
+    matchPreview.value = preview
+    previewFileKey.value = currentFileKey
+    if (showSuccessMessage) {
+      ElMessage.success('匹配校验完成，请确认后上传')
+    }
+    return preview
+  } catch (e: unknown) {
+    ElMessage.error(e instanceof Error ? e.message : '校验失败')
+    return null
+  } finally {
+    previewing.value = false
+  }
 }
 
-function handleExceed() {
-  ElMessage.warning('只能上传一个文件，请先移除已选文件')
+async function handlePreview() {
+  await runPreview(true)
 }
 
-async function handleUpload() {
-  if (!selectedFile.value) {
-    ElMessage.warning('请先选择文件')
+async function handleConfirmUpload() {
+  if (!selectedExcel.value) {
+    ElMessage.warning('请先选择 Excel 文件')
     return
   }
 
-  const currentFileKey = fileKey(selectedFile.value)
+  const preview = await runPreview(false)
+  if (!preview?.previewToken) {
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      buildConfirmMessage(preview),
+      '确认上传',
+      { type: 'warning', confirmButtonText: '确认上传', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+
+  const currentFileKey = fileKey(selectedExcel.value, selectedZip.value)
   if (lastUploadedFileKey.value === currentFileKey) {
     try {
       await ElMessageBox.confirm(
-        '该文件在本页已成功上传过，再次上传可能产生重复数据。确定要继续吗？',
+        '该文件组合在本页已成功上传过，再次上传可能产生重复数据。确定要继续吗？',
         '重复上传确认',
-        {
-          type: 'warning',
-          confirmButtonText: '继续上传',
-          cancelButtonText: '取消',
-        },
+        { type: 'warning', confirmButtonText: '继续上传', cancelButtonText: '取消' },
       )
     } catch {
       return
@@ -198,9 +304,8 @@ async function handleUpload() {
   uploadResult.value = null
   uploadProgress.value = 0
   try {
-    const start = await uploadReport(selectedFile.value, (p) => {
-      uploadProgress.value = p
-    })
+    const start = await confirmReportUpload(preview.previewToken)
+    uploadProgress.value = 40
     const batchId = start.batchId
     const finalProgress = await waitUploadComplete(batchId, (p) => {
       uploadProgress.value = p
@@ -233,14 +338,17 @@ async function handleUpload() {
 
     if (finalProgress.successCount > 0) {
       lastUploadedFileKey.value = currentFileKey
-      clearSelectedFile()
+      selectedExcel.value = null
+      selectedZip.value = null
+      invalidatePreview()
+      excelUploadRef.value?.clearFiles()
+      zipUploadRef.value?.clearFiles()
     }
 
     cluePanelRef.value?.refresh?.()
     historyPanelRef.value?.refresh?.()
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : '上传失败'
-    ElMessage.error(msg)
+    ElMessage.error(e instanceof Error ? e.message : '上传失败')
     uploadProgress.value = 0
   } finally {
     uploading.value = false
@@ -255,6 +363,13 @@ async function downloadTemplate() {
     ElMessage.error(msg)
   }
 }
+
+const progressStatus = computed(() => {
+  if (uploading.value || previewing.value) return undefined
+  if (uploadResult.value?.failCount) return 'warning'
+  if (uploadResult.value) return 'success'
+  return undefined
+})
 </script>
 
 <style lang="scss" scoped>
@@ -293,7 +408,7 @@ async function downloadTemplate() {
 
 .upload-card {
   width: 100%;
-  max-width: 720px;
+  max-width: 920px;
   background: rgba(30, 41, 59, 0.8);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(59, 130, 246, 0.15);
@@ -362,9 +477,46 @@ async function downloadTemplate() {
   }
 }
 
+.upload-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.upload-block__label {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.match-preview {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.match-preview__summary {
+  line-height: 1.6;
+}
+
+.match-preview__warn {
+  margin-top: 8px;
+  color: #fbbf24;
+}
+
+.match-preview__list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
 .upload-actions {
   display: flex;
   justify-content: center;
+  gap: 12px;
   margin-top: 20px;
 }
 

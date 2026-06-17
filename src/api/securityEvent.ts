@@ -63,6 +63,14 @@ export interface SecurityEvent {
   isShared?: number
   share_time?: string
   shareTime?: string
+  has_report?: number
+  hasReport?: number
+  is_verify?: number
+  isVerify?: number
+  is_submit?: number
+  isSubmit?: number
+  report_attachments?: Array<{ id?: string; file_name?: string; content_type?: string; size?: number }>
+  reportAttachments?: Array<{ id?: string; fileName?: string; contentType?: string; size?: number }>
   /** 列表卡片用 */
   _cardCategories?: string[]
   _cardPrimaryCategory?: string
@@ -86,6 +94,10 @@ export interface SecurityEventSearchParams {
   auditUserName?: string
   auditStartTime?: string
   auditEndTime?: string
+  /** 是否验证：0=否，1=是 */
+  isVerify?: number
+  /** 是否报送：0=否，1=是 */
+  isSubmit?: number
   page?: number
   size?: number
 }

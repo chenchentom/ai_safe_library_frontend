@@ -64,6 +64,7 @@
                   filterable
                   collapse-tags
                   collapse-tags-tooltip
+                  effect="dark"
                   class="sec-query__control sec-query__control--category"
                   popper-class="app-tag-cascader-popper"
                   aria-label="风险类别"
@@ -224,6 +225,64 @@
                           <el-icon><Share /></el-icon>
                         </template>
                       </el-input>
+                    </div>
+                    <div class="sec-query-panel__item">
+                      <label class="sec-query-panel__label">是否验证</label>
+                      <div class="sec-query-panel__segment" role="group" aria-label="是否验证">
+                        <button
+                          type="button"
+                          class="sec-query-panel__segment-btn"
+                          :class="{ 'is-active': filters.isVerify === undefined }"
+                          @click="filters.isVerify = undefined"
+                        >
+                          全部
+                        </button>
+                        <button
+                          type="button"
+                          class="sec-query-panel__segment-btn"
+                          :class="{ 'is-active': filters.isVerify === 1 }"
+                          @click="filters.isVerify = 1"
+                        >
+                          是
+                        </button>
+                        <button
+                          type="button"
+                          class="sec-query-panel__segment-btn"
+                          :class="{ 'is-active': filters.isVerify === 0 }"
+                          @click="filters.isVerify = 0"
+                        >
+                          否
+                        </button>
+                      </div>
+                    </div>
+                    <div class="sec-query-panel__item">
+                      <label class="sec-query-panel__label">是否报送</label>
+                      <div class="sec-query-panel__segment" role="group" aria-label="是否报送">
+                        <button
+                          type="button"
+                          class="sec-query-panel__segment-btn"
+                          :class="{ 'is-active': filters.isSubmit === undefined }"
+                          @click="filters.isSubmit = undefined"
+                        >
+                          全部
+                        </button>
+                        <button
+                          type="button"
+                          class="sec-query-panel__segment-btn"
+                          :class="{ 'is-active': filters.isSubmit === 1 }"
+                          @click="filters.isSubmit = 1"
+                        >
+                          是
+                        </button>
+                        <button
+                          type="button"
+                          class="sec-query-panel__segment-btn"
+                          :class="{ 'is-active': filters.isSubmit === 0 }"
+                          @click="filters.isSubmit = 0"
+                        >
+                          否
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <footer class="sec-query-panel__foot">
@@ -569,6 +628,14 @@
                 <dd>{{ currentEvent.submit_user_name || currentEvent.submitUserName || '—' }}</dd>
               </div>
               <div class="detail-dl__row">
+                <dt>是否验证</dt>
+                <dd>{{ getYesNoField(currentEvent, 'is_verify', 'isVerify') }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>是否报送</dt>
+                <dd>{{ getYesNoField(currentEvent, 'is_submit', 'isSubmit') }}</dd>
+              </div>
+              <div class="detail-dl__row">
                 <dt>报送单位</dt>
                 <dd>{{ getSubmitOrg(currentEvent) || '—' }}</dd>
               </div>
@@ -578,6 +645,12 @@
               </div>
             </dl>
           </section>
+
+          <ClueReportAttachments
+            v-if="currentEvent?.id"
+            :clue-id="currentEvent.id"
+            :initial-attachments="currentEvent.report_attachments || currentEvent.reportAttachments"
+          />
 
           <section class="detail-block detail-block--audit">
             <header class="detail-block__header">
@@ -697,6 +770,7 @@ import {
   Delete,
 } from '@element-plus/icons-vue'
 import ManualClueCreateDialog from '@/components/business/ManualClueCreateDialog.vue'
+import ClueReportAttachments from '@/components/business/ClueReportAttachments.vue'
 import { getTagTree, type TagCategory } from '@/api/riskClue'
 import {
   searchEvents,
@@ -773,6 +847,8 @@ const filters = reactive({
   submitOrgName: '',
   submissionChannel: '',
   auditDateRange: [] as string[],
+  isVerify: undefined as number | undefined,
+  isSubmit: undefined as number | undefined,
 })
 
 const pagination = reactive({
@@ -823,6 +899,23 @@ function sourceLabel(source?: string): string {
   if (!source) return ''
   const map: Record<string, string> = { crawl: '开源网站', report: '报送' }
   return map[source] || source
+}
+
+function formatYesNo(value: unknown): string {
+  if (value === 1 || value === '1') return '是'
+  if (value === 0 || value === '0') return '否'
+  return '—'
+}
+
+function getYesNoField(item: SecurityEvent | null | undefined, ...keys: string[]): string {
+  if (!item) return '—'
+  for (const key of keys) {
+    const val = (item as any)[key]
+    if (val === 0 || val === 1 || val === '0' || val === '1') {
+      return formatYesNo(val)
+    }
+  }
+  return '—'
 }
 
 function getOriginalRiskDescription(item: SecurityEvent): string {
@@ -1099,6 +1192,12 @@ const activeFilterChips = computed(() => {
   if (filters.submissionChannel) {
     chips.push({ key: 'submissionChannel', shortLabel: `报送渠道 · ${filters.submissionChannel}` })
   }
+  if (filters.isVerify !== undefined) {
+    chips.push({ key: 'isVerify', shortLabel: `验证 · ${formatYesNo(filters.isVerify)}` })
+  }
+  if (filters.isSubmit !== undefined) {
+    chips.push({ key: 'isSubmit', shortLabel: `报送 · ${formatYesNo(filters.isSubmit)}` })
+  }
   if (filters.auditDateRange?.length === 2) {
     chips.push({
       key: 'auditDateRange',
@@ -1116,6 +1215,8 @@ const moreFilterCount = computed(() => {
   if (filters.submitUserName) n++
   if (filters.submitOrgName) n++
   if (filters.submissionChannel) n++
+  if (filters.isVerify !== undefined) n++
+  if (filters.isSubmit !== undefined) n++
   return n
 })
 
@@ -1131,6 +1232,8 @@ function clearMoreFilters() {
   filters.submitUserName = ''
   filters.submitOrgName = ''
   filters.submissionChannel = ''
+  filters.isVerify = undefined
+  filters.isSubmit = undefined
 }
 
 function removeFilterChip(key: string) {
@@ -1142,6 +1245,8 @@ function removeFilterChip(key: string) {
   if (key === 'submitUserName') filters.submitUserName = ''
   if (key === 'submitOrgName') filters.submitOrgName = ''
   if (key === 'submissionChannel') filters.submissionChannel = ''
+  if (key === 'isVerify') filters.isVerify = undefined
+  if (key === 'isSubmit') filters.isSubmit = undefined
   if (key === 'auditDateRange') filters.auditDateRange = []
   handleSearch()
 }
@@ -1208,6 +1313,8 @@ async function fetchData() {
     if (filters.submitUserName) params.submitUserName = filters.submitUserName.trim()
     if (filters.submitOrgName) params.submitOrgName = filters.submitOrgName.trim()
     if (filters.submissionChannel) params.submissionChannel = filters.submissionChannel.trim()
+    if (filters.isVerify !== undefined) params.isVerify = filters.isVerify
+    if (filters.isSubmit !== undefined) params.isSubmit = filters.isSubmit
     if (filters.auditDateRange?.length === 2) {
       params.auditStartTime = filters.auditDateRange[0]
       params.auditEndTime = filters.auditDateRange[1]
@@ -1308,6 +1415,8 @@ function handleReset() {
   filters.submitOrgName = ''
   filters.submissionChannel = ''
   filters.auditDateRange = []
+  filters.isVerify = undefined
+  filters.isSubmit = undefined
   pagination.page = 1
   fetchData()
 }
@@ -1435,6 +1544,36 @@ onBeforeUnmount(() => {
 .sec-query-panel-popper .sec-query-panel__input .el-input__inner {
   color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
+}
+
+.sec-query-panel-popper .sec-query-panel__segment {
+  display: flex;
+  gap: 6px;
+}
+
+.sec-query-panel-popper .sec-query-panel__segment-btn {
+  flex: 1;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: $border-radius-md;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(200, 210, 230, 0.85);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.sec-query-panel-popper .sec-query-panel__segment-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.sec-query-panel-popper .sec-query-panel__segment-btn.is-active {
+  border-color: rgba(79, 124, 255, 0.55);
+  background: rgba(79, 124, 255, 0.18);
+  color: #fff;
 }
 
 .sec-query-panel-popper .sec-query-panel__foot {

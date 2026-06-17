@@ -288,13 +288,13 @@ interface RecentEventItem {
 
 const recentEvents = ref<RecentEventItem[]>([])
 
-function riskLevelToTag(level: string): { level: string; type: 'danger' | 'warning' | 'info' } {
+function riskLevelToTag(level?: string): { level: string; type: 'danger' | 'warning' | 'info' } {
   const map: Record<string, { level: string; type: 'danger' | 'warning' | 'info' }> = {
     high: { level: '高危', type: 'danger' },
     medium: { level: '中危', type: 'warning' },
     low: { level: '低危', type: 'info' },
   }
-  return map[level] || { level: level || '未知', type: 'info' }
+  return map[level ?? ''] || { level: level || '未知', type: 'info' }
 }
 
 function formatRelativeTime(time?: string): string {

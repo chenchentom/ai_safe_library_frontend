@@ -161,7 +161,12 @@
         </el-form-item>
         <el-form-item label="个人角色">
           <el-select v-model="formData.roleIds" multiple collapse-tags popper-class="system-admin-popper" placeholder="额外绑定角色（与部门角色合并生效）" style="width: 100%">
-            <el-option v-for="r in roleOptions" :key="r.roleId" :label="r.roleName" :value="r.roleId" />
+            <el-option
+              v-for="r in roleOptions"
+              :key="r.roleId ?? r.roleName"
+              :label="r.roleName"
+              :value="r.roleId!"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">

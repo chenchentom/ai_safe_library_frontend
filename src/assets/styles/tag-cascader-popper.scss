@@ -88,3 +88,46 @@
     color: rgba(160, 180, 210, 0.55);
   }
 }
+
+/* 折叠标签 tooltip（非下拉面板）：默认 light 会导致标签 hover 白底白字 */
+.app-tag-cascader-popper.el-popper.is-light:not(.el-cascader__dropdown) {
+  background: linear-gradient(180deg, rgba(14, 24, 44, 0.98), rgba(8, 14, 26, 0.99)) !important;
+  border: 1px solid rgba(79, 124, 255, 0.22) !important;
+  box-shadow:
+    0 0 40px rgba(79, 124, 255, 0.12),
+    0 16px 48px rgba(0, 0, 0, 0.55) !important;
+  --el-fill-color-blank: rgba(14, 24, 44, 0.98);
+  --el-bg-color-overlay: rgba(14, 24, 44, 0.98);
+
+  .el-popper__arrow::before {
+    background: rgba(14, 24, 44, 0.98) !important;
+    border-color: rgba(79, 124, 255, 0.22) !important;
+  }
+}
+
+/* 级联选择器内已选标签（含折叠 tooltip 内）hover 态 */
+.app-tag-cascader-popper,
+.filter-panel .filter-control--category.el-cascader,
+.detail-panel .review-control--category.el-cascader {
+  .el-cascader__tags .el-tag,
+  .el-cascader__collapse-tags .el-tag {
+    background: rgba(79, 124, 255, 0.12) !important;
+    border-color: rgba(79, 124, 255, 0.24) !important;
+    color: rgba(220, 235, 255, 0.92) !important;
+
+    &:hover {
+      background: rgba(79, 124, 255, 0.22) !important;
+      border-color: rgba(79, 124, 255, 0.38) !important;
+      color: rgba(236, 242, 255, 0.98) !important;
+    }
+
+    .el-tag__close {
+      color: rgba(160, 180, 210, 0.78) !important;
+
+      &:hover {
+        color: rgba(255, 255, 255, 0.98) !important;
+        background: rgba(79, 124, 255, 0.35) !important;
+      }
+    }
+  }
+}

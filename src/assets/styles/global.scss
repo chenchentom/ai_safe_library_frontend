@@ -55,6 +55,10 @@
   --el-fill-color-lighter: rgba(11, 18, 32, 0.45);
   --el-fill-color-dark: rgba(11, 18, 32, 0.82);
   --el-fill-color-darker: rgba(11, 18, 32, 0.9);
+  --el-fill-color-blank: rgba(11, 18, 32, 0.92);
+
+  // 树节点悬停（避免折叠/聚焦时出现浅色底 + 浅色字）
+  --el-tree-node-hover-bg-color: rgba(79, 124, 255, 0.1);
 }
 
 // 全局页面过渡

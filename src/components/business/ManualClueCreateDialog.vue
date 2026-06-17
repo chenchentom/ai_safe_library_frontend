@@ -228,7 +228,7 @@
       </section>
 
       <!-- 全文内容 -->
-      <section class="manual-create-section manual-create-section--last">
+      <section class="manual-create-section">
         <span class="manual-create-section__accent" aria-hidden="true" />
         <header class="manual-create-section__head">
           <div class="manual-create-section__title-wrap">
@@ -249,6 +249,64 @@
               placeholder="可粘贴通报原文、摘要或补充说明"
             />
           </el-form-item>
+        </div>
+      </section>
+
+      <!-- 报告附件 -->
+      <section class="manual-create-section manual-create-section--last">
+        <span class="manual-create-section__accent" aria-hidden="true" />
+        <header class="manual-create-section__head">
+          <div class="manual-create-section__title-wrap">
+            <span class="manual-create-section__index">05</span>
+            <h4 class="manual-create-section__title">
+              <el-icon><Document /></el-icon>
+              报告附件
+            </h4>
+          </div>
+          <span class="manual-create-section__badge">OPT</span>
+        </header>
+        <div class="manual-create-section__body">
+          <div
+            v-if="isEditMode && existingAttachments.length > 0"
+            v-loading="existingAttachmentsLoading"
+            class="manual-create-existing-files"
+          >
+            <p class="manual-create-existing-files__label">已上传报告（{{ existingAttachments.length }}）</p>
+            <ul class="manual-create-existing-files__list">
+              <li
+                v-for="item in existingAttachments"
+                :key="item.id"
+                class="manual-create-existing-files__item"
+              >
+                <span class="manual-create-existing-files__name" :title="item.fileName">
+                  <el-icon><Document /></el-icon>
+                  {{ item.fileName }}
+                </span>
+                <div class="manual-create-existing-files__actions">
+                  <el-button link type="primary" @click="openExistingPreview(item)">预览</el-button>
+                  <el-button link @click="handleDownloadExisting(item)">下载</el-button>
+                  <el-button link type="danger" @click="handleDeleteExisting(item)">删除</el-button>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <el-upload
+            v-model:file-list="reportFileList"
+            class="manual-create-upload"
+            drag
+            multiple
+            :auto-upload="false"
+            :limit="remainingUploadLimit"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg"
+          >
+            <el-icon class="manual-create-upload__icon"><Upload /></el-icon>
+            <div class="manual-create-upload__text">
+              拖拽或<em>点击上传</em>报告文件
+            </div>
+            <p class="manual-create-upload__tip">
+              PDF / Word / 图片等 · 单文件 ≤20MB · 最多 10 个
+            </p>
+          </el-upload>
         </div>
       </section>
     </el-form>
@@ -277,11 +335,18 @@
       </div>
     </template>
   </el-dialog>
+
+  <ReportPreviewDialog
+    v-model:visible="previewVisible"
+    :attachment-id="previewTarget?.id ?? ''"
+    :file-name="previewTarget?.fileName ?? ''"
+    :content-type="previewTarget?.contentType"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, watch, computed } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
   Document,
   Link,
@@ -290,16 +355,21 @@ import {
   OfficeBuilding,
   EditPen,
   Cpu,
+  Upload,
 } from '@element-plus/icons-vue'
+import type { CascaderOption, UploadUserFile } from 'element-plus'
 import {
   createRiskClue,
   resolveSubmitOrg,
+  updateRiskClue,
   type RiskClue,
   type RiskClueManualCreatePayload,
 } from '@/api/riskClue'
+import { uploadClueAttachments, listClueAttachments, downloadClueAttachment, deleteClueAttachment, normalizeAttachmentId, normalizeAttachmentName, type ClueAttachment, type ReportAttachmentMeta } from '@/api/clueAttachment'
+import ReportPreviewDialog from '@/components/business/ReportPreviewDialog.vue'
 import { getTagTree, type TagCategoryNode } from '@/api/tagCategory'
 import { createSecurityEvent } from '@/api/securityEvent'
-import { updateMyReport } from '@/api/riskReport'
+import { updateMyReport, createMyReport } from '@/api/riskReport'
 import { useAuthStore } from '@/stores/auth'
 
 const props = withDefaults(
@@ -310,11 +380,14 @@ const props = withDefaults(
     editClueId?: string
     /** 编辑模式：当前线索数据，用于表单回填 */
     editClue?: RiskClue | null
+    /** 编辑保存接口：library=线索库，report=我的报送 */
+    editVia?: 'library' | 'report'
   }>(),
   {
     mode: 'clue',
     editClueId: '',
     editClue: null,
+    editVia: 'report',
   },
 )
 
@@ -326,6 +399,11 @@ const emit = defineEmits<{
 const authStore = useAuthStore()
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
+const reportFileList = ref<UploadUserFile[]>([])
+const existingAttachments = ref<ClueAttachment[]>([])
+const existingAttachmentsLoading = ref(false)
+const previewVisible = ref(false)
+const previewTarget = ref<ClueAttachment | null>(null)
 const tagTree = ref<TagCategoryNode[]>([])
 
 const riskTagCascaderProps = {
@@ -341,26 +419,32 @@ function filterEnabledTagTree(nodes: TagCategoryNode[]): TagCategoryNode[] {
     .filter((node) => node.status === '0')
     .map((node) => ({
       ...node,
-      children: node.children?.length ? filterEnabledTagTree(node.children) : undefined,
+      children: node.children?.length ? filterEnabledTagTree(node.children) : [],
     }))
 }
 
-const tagTreeOptions = computed(() => filterEnabledTagTree(tagTree.value))
+const tagTreeOptions = computed((): CascaderOption[] =>
+  filterEnabledTagTree(tagTree.value) as unknown as CascaderOption[],
+)
 
 const isEditMode = computed(() => Boolean(props.editClueId))
 
 const dialogEyebrowCode = computed(() => {
-  if (isEditMode.value) return 'REPORT-EDIT'
+  if (isEditMode.value) return props.editVia === 'library' ? 'CLUE-EDIT' : 'REPORT-EDIT'
   return props.mode === 'event' ? 'SEC-EVENT' : 'RISK-CLUE'
 })
 
 const dialogTitle = computed(() => {
-  if (isEditMode.value) return '编辑报送'
+  if (isEditMode.value) {
+    return props.editVia === 'library' ? '编辑风险线索' : '编辑报送'
+  }
   return props.mode === 'event' ? '新增安全事件' : '新增风险线索'
 })
 
 const dialogSubtitle = computed(() => {
-  if (isEditMode.value) return '仅未审核状态可修改基础报送信息，保存后立即生效。'
+  if (isEditMode.value) {
+    return '可修改基础信息与报告附件，保存后立即生效（待审核与已审核均可编辑）。'
+  }
   return props.mode === 'event'
     ? '创建后自动审核入库，报送信息与审核信息保持一致。'
     : '创建后进入待审核状态，可在本库审核后入库。'
@@ -379,6 +463,11 @@ const statusPillText = computed(() => {
 const submitButtonText = computed(() => {
   if (isEditMode.value) return '保存修改'
   return props.mode === 'event' ? '创建并入库' : '创建线索'
+})
+
+const remainingUploadLimit = computed(() => {
+  const used = existingAttachments.value.length
+  return Math.max(0, 10 - used)
 })
 
 const form = reactive({
@@ -494,13 +583,70 @@ function populateFormFromClue(clue: RiskClue) {
   )
 }
 
+async function loadExistingAttachments(clueId: string) {
+  existingAttachmentsLoading.value = true
+  existingAttachments.value = []
+  reportFileList.value = []
+  try {
+    const rows = await listClueAttachments(clueId)
+    existingAttachments.value = rows || []
+  } catch {
+    existingAttachments.value = mapSnapshotAttachments(props.editClue)
+  } finally {
+    existingAttachmentsLoading.value = false
+  }
+}
+
+function mapSnapshotAttachments(clue?: RiskClue | null): ClueAttachment[] {
+  const items = clue?.report_attachments || clue?.reportAttachments
+  if (!items?.length) return []
+  return items.map((item) => {
+    const meta = item as ReportAttachmentMeta
+    return {
+      id: normalizeAttachmentId(meta),
+      fileName: normalizeAttachmentName(meta),
+      contentType: meta.content_type || meta.contentType,
+      size: meta.size,
+    }
+  })
+}
+
+function openExistingPreview(item: ClueAttachment) {
+  previewTarget.value = item
+  previewVisible.value = true
+}
+
+async function handleDownloadExisting(item: ClueAttachment) {
+  await downloadClueAttachment(item.id, item.fileName)
+}
+
+async function handleDeleteExisting(item: ClueAttachment) {
+  try {
+    await ElMessageBox.confirm(`确定删除报告「${item.fileName}」？`, '删除附件', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+    await deleteClueAttachment(item.id)
+    existingAttachments.value = existingAttachments.value.filter((row) => row.id !== item.id)
+    ElMessage.success('附件已删除')
+  } catch {
+    // 用户取消
+  }
+}
+
 watch(
   () => props.visible,
   async (open) => {
     if (!open) return
     if (isEditMode.value && props.editClue) {
       populateFormFromClue(props.editClue)
+      if (props.editClueId) {
+        await loadExistingAttachments(props.editClueId)
+      }
     } else {
+      existingAttachments.value = []
+      reportFileList.value = []
       initSubmitMeta()
       await syncSubmitOrg()
     }
@@ -543,6 +689,11 @@ function buildPayload(): RiskClueManualCreatePayload {
 
 function resetForm() {
   formRef.value?.resetFields()
+  reportFileList.value = []
+  existingAttachments.value = []
+  existingAttachmentsLoading.value = false
+  previewVisible.value = false
+  previewTarget.value = null
   Object.assign(form, {
     eventName: '',
     riskDescription: '',
@@ -576,15 +727,31 @@ async function handleSubmit() {
   try {
     const payload = buildPayload()
     if (isEditMode.value && props.editClueId) {
-      await updateMyReport(props.editClueId, payload)
-      ElMessage.success('报送信息已更新')
+      if (props.editVia === 'library') {
+        await updateRiskClue(props.editClueId, payload)
+      } else {
+        await updateMyReport(props.editClueId, payload)
+      }
+      const pendingFiles = reportFileList.value.map((f) => f.raw).filter(Boolean) as File[]
+      if (pendingFiles.length > 0) {
+        await uploadClueAttachments(props.editClueId, pendingFiles)
+      }
+      ElMessage.success(props.editVia === 'library' ? '线索信息已更新' : '报送信息已更新')
       emit('update:visible', false)
       emit('success', props.editClueId)
       return
     }
     const res =
-      props.mode === 'event' ? await createSecurityEvent(payload) : await createRiskClue(payload)
+      props.mode === 'event'
+        ? await createSecurityEvent(payload)
+        : props.editVia === 'report'
+          ? await createMyReport(payload)
+          : await createRiskClue(payload)
     const id = (res as { id?: string })?.id
+    const pendingFiles = reportFileList.value.map((f) => f.raw).filter(Boolean) as File[]
+    if (id && pendingFiles.length > 0) {
+      await uploadClueAttachments(id, pendingFiles)
+    }
     ElMessage.success(props.mode === 'event' ? '安全事件已创建并入库' : '风险线索已创建')
     emit('update:visible', false)
     emit('success', id || '')
@@ -676,7 +843,7 @@ async function handleSubmit() {
     border-color $duration-base $ease-out,
     box-shadow $duration-base $ease-out;
 
-  @for $i from 1 through 4 {
+  @for $i from 1 through 5 {
     &:nth-of-type(#{$i}) {
       animation-delay: #{0.06 + ($i - 1) * 0.05}s;
     }
@@ -906,6 +1073,211 @@ async function handleSubmit() {
   :deep(.el-input__inner) {
     cursor: default;
     color: rgba(180, 200, 230, 0.78);
+  }
+}
+
+.manual-create-existing-files {
+  margin-bottom: $spacing-3;
+
+  &__label {
+    margin: 0 0 8px;
+    font-size: 11px;
+    font-family: $font-family-mono;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(160, 180, 210, 0.72);
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: $border-radius-md;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(79, 124, 255, 0.14);
+  }
+
+  &__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    font-size: $font-size-sm;
+    color: rgba(230, 237, 247, 0.88);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    .el-icon {
+      flex-shrink: 0;
+      color: rgba(160, 190, 255, 0.75);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+
+    :deep(.el-button.is-link) {
+      font-size: $font-size-xs;
+      color: rgba(160, 180, 210, 0.72);
+
+      &:hover {
+        color: rgba(230, 237, 247, 0.92);
+      }
+    }
+
+    :deep(.el-button.is-link.el-button--primary) {
+      color: rgba(107, 139, 255, 0.95);
+    }
+  }
+}
+
+.manual-create-upload {
+  width: 100%;
+
+  :deep(.el-upload) {
+    width: 100%;
+  }
+
+  :deep(.el-upload-dragger) {
+    width: 100%;
+    padding: 28px 20px 24px;
+    border-radius: $border-radius-md;
+    border: 1px dashed rgba(79, 124, 255, 0.28);
+    background:
+      linear-gradient(160deg, rgba(0, 0, 0, 0.48) 0%, rgba(8, 14, 28, 0.72) 100%);
+    box-shadow:
+      inset 0 0 0 1px rgba(79, 124, 255, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03),
+      inset 0 -16px 32px rgba(0, 0, 0, 0.22);
+    transition:
+      border-color $duration-base $ease-out,
+      box-shadow $duration-base $ease-out,
+      background $duration-base $ease-out;
+
+    &:hover {
+      border-color: rgba(255, 185, 80, 0.42);
+      background:
+        linear-gradient(160deg, rgba(0, 0, 0, 0.52) 0%, rgba(10, 18, 36, 0.78) 100%);
+      box-shadow:
+        inset 0 0 0 1px rgba(79, 124, 255, 0.18),
+        0 0 20px rgba(79, 124, 255, 0.1);
+    }
+
+    &.is-dragover {
+      border-color: rgba(255, 185, 80, 0.55);
+      background:
+        linear-gradient(160deg, rgba(79, 124, 255, 0.08) 0%, rgba(8, 14, 28, 0.82) 100%);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 185, 80, 0.35),
+        0 0 28px rgba(79, 124, 255, 0.18);
+    }
+  }
+
+  &__icon {
+    margin-bottom: 10px;
+    font-size: 36px;
+    color: rgba(120, 180, 255, 0.72);
+    filter: drop-shadow(0 0 10px rgba(79, 124, 255, 0.35));
+    transition: color $duration-base $ease-out, filter $duration-base $ease-out;
+  }
+
+  :deep(.el-upload-dragger:hover) .manual-create-upload__icon,
+  :deep(.el-upload-dragger.is-dragover) .manual-create-upload__icon {
+    color: rgba(255, 185, 80, 0.92);
+    filter: drop-shadow(0 0 12px rgba(255, 185, 80, 0.35));
+  }
+
+  &__text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(180, 200, 230, 0.88);
+
+    em {
+      font-style: normal;
+      color: rgba(120, 180, 255, 0.95);
+    }
+  }
+
+  &__tip {
+    margin: 8px 0 0;
+    font-family: $font-family-mono;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+    color: rgba(140, 160, 190, 0.62);
+  }
+
+  :deep(.el-upload-list) {
+    margin-top: $spacing-3;
+  }
+
+  :deep(.el-upload-list__item) {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: $border-radius-md;
+    border: 1px solid rgba(79, 124, 255, 0.14);
+    background:
+      linear-gradient(135deg, rgba(0, 0, 0, 0.38) 0%, rgba(8, 14, 28, 0.62) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    transition:
+      border-color $duration-base $ease-out,
+      background $duration-base $ease-out;
+
+    &:hover {
+      border-color: rgba(79, 124, 255, 0.28);
+      background:
+        linear-gradient(135deg, rgba(0, 0, 0, 0.45) 0%, rgba(10, 18, 36, 0.72) 100%);
+    }
+  }
+
+  :deep(.el-upload-list__item-name) {
+    color: rgba(210, 225, 245, 0.9);
+
+    .el-icon {
+      color: rgba(120, 180, 255, 0.75);
+    }
+  }
+
+  :deep(.el-upload-list__item-status-label) {
+    color: rgba(140, 160, 190, 0.55);
+  }
+
+  :deep(.el-upload-list__item .el-icon--close) {
+    color: rgba(160, 180, 210, 0.55);
+    transition: color $duration-base $ease-out;
+
+    &:hover {
+      color: rgba(255, 185, 80, 0.95);
+    }
+  }
+
+  :deep(.el-progress-bar__outer) {
+    background: rgba(79, 124, 255, 0.12);
+  }
+
+  :deep(.el-progress-bar__inner) {
+    background: linear-gradient(90deg, rgba(79, 124, 255, 0.85), rgba(255, 185, 80, 0.75));
+  }
+
+  :deep(.el-progress__text) {
+    color: rgba(160, 180, 210, 0.72);
+    font-family: $font-family-mono;
+    font-size: 11px;
   }
 }
 </style>
